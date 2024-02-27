@@ -77,6 +77,7 @@ const Experience = () => {
                     {tech.map(({ id, src, title, style }) => (
                         <div
                             key={id}
+                            // eslint-disable-next-line
                             className={
                                 "shadow-md hover:scale-105 duration-500 py-2 rounded-lg" +
                                 " " +
