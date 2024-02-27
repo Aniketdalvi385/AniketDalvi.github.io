@@ -8,22 +8,22 @@ import reactWeather from "../assets/portfolio/reactWeather.jpg";
 
 const Portfolio = () => {
     const portfolios = [
-        // {
-        //     id: 1,
-        //     src: arrayDestruct,
-        // },
-        // {
-        //     id: 2,
-        //     src: reactParallax,
-        // },
-        // {
-        //     id: 3,
-        //     src: navbar,
-        // },
-        // {
-        //     id: 4,
-        //     src: reactSmooth,
-        // },
+        {
+            id: 1,
+            src: arrayDestruct,
+        },
+        {
+            id: 2,
+            src: reactParallax,
+        },
+        {
+            id: 3,
+            src: navbar,
+        },
+        {
+            id: 4,
+            src: reactSmooth,
+        },
         // {
         //     id: 5,
         //     src: installNode,

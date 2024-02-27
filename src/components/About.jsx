@@ -18,15 +18,7 @@ const About = () => {
                     a Software Engineer at Code-B. With a keen focus on
                     full-stack web development, I have honed my skills in
                     architecting and implementing robust solutions across a
-                    spectrum of projects. From crafting intuitive user
-                    interfaces to architecting scalable backend systems, I am
-                    adept at bringing creative visions to life. My experience
-                    extends to developing and maintaining various software
-                    products, dashboards, web pages, and databases, ensuring
-                    their seamless functionality and optimization. Committed to
-                    continuous improvement, I eagerly explore new technologies
-                    and methodologies to drive innovation and enhance my skill
-                    set.
+                    spectrum of projects.
                 </p>
                 <br />
                 <p className="text-xl">
@@ -36,13 +28,7 @@ const About = () => {
                     foundation in data structures and algorithms, coupled with
                     proficiency in a wide array of programming languages and
                     technologies, I am equipped to tackle diverse challenges and
-                    deliver innovative solutions. I take pride in my
-                    achievements, having developed various specialized
-                    applications with my commitment to excellence and my ability
-                    to adapt to evolving requirements. As I continue to push the
-                    boundaries of what's possible in software engineering, I
-                    look forward to new opportunities to collaborate, innovate,
-                    and make a meaningful impact in the digital landscape.
+                    deliver innovative solutions.
                 </p>
             </div>
         </div>
