@@ -1,44 +1,49 @@
 import React from "react";
-import html from "../assets/html.png";
-import css from "../assets/css.png";
+import java from "../assets/java.png";
 import javascript from "../assets/javascript.png";
+import python from "../assets/python.png";
+import typescript from "../assets/typescript.png";
 import reactImage from "../assets/react.png";
 import nextjs from "../assets/nextjs.png";
-import graphql from "../assets/graphql.png";
-import github from "../assets/github.png";
+import html from "../assets/html.png";
+import css from "../assets/css.png";
 import tailwind from "../assets/tailwind.png";
+import bootstrap from "../assets/bootstrap.png";
+import github from "../assets/github.png";
+import docker from "../assets/docker.png";
+import mongoDB from "../assets/mongoDB.png";
 
 const Experience = () => {
     const tech = [
         {
             id: 1,
-            src: html,
-            title: "HTML",
-            style: "shadow-orange-500",
+            src: java,
+            title: "Java",
+            style: "shadow-orange-400",
         },
         {
             id: 2,
-            src: css,
-            title: "CSS",
-            style: "shadow-blue-500",
-        },
-        {
-            id: 3,
             src: javascript,
             title: "JavaScript",
             style: "shadow-yellow-500",
         },
         {
+            id: 3,
+            src: python,
+            title: "python",
+            style: "shadow-blue-400",
+        },
+        {
             id: 4,
-            src: reactImage,
-            title: "React",
-            style: "shadow-blue-600",
+            src: typescript,
+            title: "TypeScript",
+            style: "shadow-blue-500",
         },
         {
             id: 5,
-            src: tailwind,
-            title: "Tailwind",
-            style: "shadow-sky-400",
+            src: reactImage,
+            title: "React",
+            style: "shadow-sky-500",
         },
         {
             id: 6,
@@ -48,15 +53,51 @@ const Experience = () => {
         },
         {
             id: 7,
-            src: graphql,
-            title: "Graphql",
-            style: "shadow-pink-400",
+            src: "https://nestjs.com/logo-small.ede75a6b.svg",
+            title: "NestJs",
+            style: "shadow-red-400",
         },
         {
             id: 8,
+            src: html,
+            title: "HTML",
+            style: "shadow-orange-500",
+        },
+        {
+            id: 9,
+            src: css,
+            title: "CSS",
+            style: "shadow-blue-500",
+        },
+        {
+            id: 10,
+            src: tailwind,
+            title: "Tailwind",
+            style: "shadow-teal-400",
+        },
+        {
+            id: 11,
+            src: bootstrap,
+            title: "BootStrap",
+            style: "shadow-fuchsia-700",
+        },
+        {
+            id: 12,
             src: github,
             title: "GitHub",
             style: "shadow-gray-400",
+        },
+        {
+            id: 13,
+            src: docker,
+            title: "Docker",
+            style: "shadow-sky-400",
+        },
+        {
+            id: 14,
+            src: mongoDB,
+            title: "MongoDB",
+            style: "shadow-green-400",
         },
     ];
     return (

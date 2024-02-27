@@ -15,11 +15,12 @@ const Home = () => {
                         I am a Full Stack Developer!
                     </h2>
                     <p className="text-gray-500 py-4 max-w-md">
-                        Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                        Sapiente, hic soluta? Eos id fugit similique aperiam
-                        perferendis laboriosam! Sunt doloribus minima quasi?
-                        Ipsum dolorem corporis, neque eos consectetur tempora
-                        officia?
+                        Experienced in full-stack web development, adept at
+                        crafting seamless digital experiences across diverse
+                        projects. Passionate about pushing the boundaries of
+                        innovation, dedicated to delivering impactful solutions
+                        through elegant frontend designs and robust backend
+                        systems.
                     </p>
                     <div>
                         <Link
