@@ -1,28 +1,35 @@
 import React from "react";
-import arrayDestruct from "../assets/portfolio/arrayDestruct.jpg";
-import installNode from "../assets/portfolio/installNode.jpg";
-import navbar from "../assets/portfolio/navbar.jpg";
-import reactParallax from "../assets/portfolio/reactParallax.jpg";
-import reactSmooth from "../assets/portfolio/reactSmooth.jpg";
-import reactWeather from "../assets/portfolio/reactWeather.jpg";
+import pdfMagic from "../assets/portfolio/pdfMagic.png";
+import taskUp from "../assets/portfolio/taskUp.png";
+import textEditor from "../assets/portfolio/textEditor.png";
+import webMagic from "../assets/portfolio/webMagic.png";
 
 const Portfolio = () => {
     const portfolios = [
         {
             id: 1,
-            src: arrayDestruct,
+            src: taskUp,
+            name: "TaskUp",
+            codeLink: "https://github.com/Aniketdalvi385/TaskUp",
         },
         {
             id: 2,
-            src: reactParallax,
+            src: textEditor,
+            name: "Retro Text Editor",
+            codeLink:
+                "https://github.com/Aniketdalvi385/Java-Projects/tree/main/TextEditorProject1",
         },
         {
             id: 3,
-            src: navbar,
+            src: webMagic,
+            name: "WebMagic",
+            codeLink: "https://github.com/Aniketdalvi385/WebMagic",
         },
         {
             id: 4,
-            src: reactSmooth,
+            src: pdfMagic,
+            name: "PDF Magic",
+            codeLink: "https://github.com/Aniketdalvi385/PDF-and-.TXT-Magic",
         },
         // {
         //     id: 5,
@@ -46,7 +53,7 @@ const Portfolio = () => {
                     <p className="py-6">Checkout some of my work right here.</p>
                 </div>
                 <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-8 px-12 sm:px-0">
-                    {portfolios.map(({ id, src }) => (
+                    {portfolios.map(({ id, src, name, codeLink }) => (
                         <div
                             key={id}
                             className="shadow-md shadow-gray-600 rounded-lg"
@@ -56,11 +63,19 @@ const Portfolio = () => {
                                 alt=""
                                 className="rounded-md duration-200 hover:scale-105"
                             />
+                            <div className="flex items-center justify-center py-3">
+                                <div>{name}</div>
+                            </div>
                             <div className="flex items-center justify-center">
                                 {/* <button className='w-1/2 px-6 py-3 m-4 duration-200 hover:scale-105'>Demo</button> */}
-                                <button className="w-1/2 px-6 py-3 m-4 duration-200 hover:scale-105">
+                                <a
+                                    href={codeLink}
+                                    className="flex w-1/2 px-6 m-2 duration-200 hover:scale-105 justify-center"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
                                     Code
-                                </button>
+                                </a>
                             </div>
                         </div>
                     ))}
