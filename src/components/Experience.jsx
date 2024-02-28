@@ -12,6 +12,24 @@ import bootstrap from "../assets/bootstrap.png";
 import github from "../assets/github.png";
 import docker from "../assets/docker.png";
 import mongoDB from "../assets/mongoDB.png";
+import { motion } from "framer-motion";
+
+const animationVariant = {
+    initial: {
+        opacity: 0,
+        y: 100,
+    },
+    final: (index) => ({
+        opacity: 1,
+        y: 0,
+        transition: {
+            delay: 0.3 * index,
+        },
+    }),
+    hover: {
+        scale: 1.05,
+    },
+};
 
 const Experience = () => {
     const tech = [
@@ -116,7 +134,7 @@ const Experience = () => {
                 </div>
                 <div className="w-full grid grid-cols-2 sm:grid-cols-3 gap-8 text-center py-8 px-12 sm:px-0">
                     {tech.map(({ id, src, title, style }) => (
-                        <div
+                        <motion.div
                             key={id}
                             // eslint-disable-next-line
                             className={
@@ -124,10 +142,18 @@ const Experience = () => {
                                 " " +
                                 style
                             }
+                            variants={animationVariant}
+                            initial="initial"
+                            whileHover="hover"
+                            whileInView="final"
+                            viewport={{
+                                once: true,
+                            }}
+                            custom={id}
                         >
                             <img src={src} alt="" className="w-20 mx-auto" />
                             <p className="mt-4">{title}</p>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             </div>

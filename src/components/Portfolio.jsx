@@ -3,6 +3,21 @@ import pdfMagic from "../assets/portfolio/pdfMagic.png";
 import taskUp from "../assets/portfolio/taskUp.png";
 import textEditor from "../assets/portfolio/textEditor.png";
 import webMagic from "../assets/portfolio/webMagic.png";
+import { motion } from "framer-motion";
+
+const animationVariant = {
+    initial: {
+        opacity: 0,
+        y: 100,
+    },
+    final: (index) => ({
+        opacity: 1,
+        y: 0,
+        transition: {
+            delay: 0.3 * index,
+        },
+    }),
+};
 
 const Portfolio = () => {
     const portfolios = [
@@ -54,15 +69,24 @@ const Portfolio = () => {
                 </div>
                 <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-8 px-12 sm:px-0">
                     {portfolios.map(({ id, src, name, codeLink }) => (
-                        <div
+                        <motion.div
                             key={id}
                             className="shadow-md shadow-gray-600 rounded-lg"
+                            variants={animationVariant}
+                            initial="initial"
+                            whileInView="final"
+                            viewport={{
+                                once: true,
+                            }}
+                            custom={id}
                         >
-                            <img
-                                src={src}
-                                alt=""
-                                className="rounded-md duration-200 hover:scale-105"
-                            />
+                            <a href={codeLink} target="_blank" rel="noreferrer">
+                                <img
+                                    src={src}
+                                    alt=""
+                                    className="rounded-md duration-200 hover:scale-105"
+                                />
+                            </a>
                             <div className="flex items-center justify-center py-3">
                                 <div>{name}</div>
                             </div>
@@ -77,7 +101,7 @@ const Portfolio = () => {
                                     Code
                                 </a>
                             </div>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             </div>
