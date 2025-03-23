@@ -1,0 +1,22 @@
+.gradient-button {
+    background: linear-gradient(white, white) padding-box,
+                linear-gradient(to right, #3b82f6, #10b981, #6366f1) border-box;
+    border: 2px solid transparent;
+    transition: transform 0.3s ease;
+}
+
+.gradient-button .gradient-text {
+    background-image: linear-gradient(to right, #3b82f6, #10b981, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.dark .gradient-button {
+    background: linear-gradient(#000, #000) padding-box,
+                linear-gradient(to right, #3b82f6, #10b981, #6366f1) border-box;
+}
+
+.gradient-button:hover {
+    transform: scale(1.05);
+} 
