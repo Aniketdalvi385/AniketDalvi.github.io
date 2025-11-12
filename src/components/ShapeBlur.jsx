@@ -1,5 +1,6 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
+import { useMood } from "../contexts/MoodContext";
 
 const vertexShader = /* glsl */ `
   varying vec2 v_texcoord;
@@ -21,6 +22,8 @@ const fragmentShader = /* glsl */ `
   uniform float u_borderSize;
   uniform float u_circleSize;
   uniform float u_circleEdge;
+  uniform float u_isDarkMode;
+  uniform float u_isCasualMode;
 
   #ifndef PI
   #define PI 3.1415926535897932384626433832795
@@ -120,144 +123,202 @@ const fragmentShader = /* glsl */ `
       }
       
       vec3 color = vec3(sdf);
-      float alpha = step(0.01, sdf);
+      
+      // Invert colors for light mode (dark mode = 1.0, light mode = 0.0)
+      if (u_isDarkMode < 0.5) {
+          color = vec3(1.0 - sdf);
+      }
+      
+      // Calculate alpha with smooth blending for casual dark mode
+      float alpha;
+      if (u_isDarkMode > 0.5 && u_isCasualMode > 0.5) {
+          // In casual dark mode, use smooth alpha fade to blend with dark background
+          // Create a smooth gradient that fades from the shape to transparent
+          // This makes the blur effect blend seamlessly with the background
+          // Use a wider smoothstep range for smoother fade-out
+          alpha = smoothstep(-0.1, 0.3, sdf) * 0.5; // Smooth fade with gradual opacity
+      } else {
+          // Normal sharp edge for other modes
+          alpha = step(0.01, sdf);
+      }
+      
       gl_FragColor = vec4(color.rgb, alpha);
   }
 `;
 
 const ShapeBlur = ({
-    className = "",
-    variation = 0,
-    pixelRatioProp = 2,
-    shapeSize = 1.2,
-    roundness = 0.4,
-    borderSize = 0.05,
-    circleSize = 0.3,
-    circleEdge = 0.5,
+	className = "",
+	variation = 0,
+	pixelRatioProp = 2,
+	shapeSize = 1.2,
+	roundness = 0.4,
+	borderSize = 0.05,
+	circleSize = 0.3,
+	circleEdge = 0.5,
 }) => {
-    const mountRef = useRef();
+	const mountRef = useRef();
+	const { mood } = useMood();
+	const [isDarkMode, setIsDarkMode] = useState(() => {
+		return document.documentElement.classList.contains("dark");
+	});
 
-    useEffect(() => {
-        const mount = mountRef.current;
-        let animationFrameId;
-        let time = 0,
-            lastTime = 0;
+	// Watch for theme changes
+	useEffect(() => {
+		const checkTheme = () => {
+			setIsDarkMode(document.documentElement.classList.contains("dark"));
+		};
 
-        const vMouse = new THREE.Vector2();
-        const vMouseDamp = new THREE.Vector2();
-        const vResolution = new THREE.Vector2();
+		// Check initial theme
+		checkTheme();
 
-        let w = 1,
-            h = 1;
+		// Watch for class changes on document element
+		const observer = new MutationObserver(checkTheme);
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ["class"],
+		});
 
-        const scene = new THREE.Scene();
-        const camera = new THREE.OrthographicCamera();
-        camera.position.z = 1;
+		return () => observer.disconnect();
+	}, []);
 
-        const renderer = new THREE.WebGLRenderer({ alpha: true });
-        renderer.setClearColor(0x000000, 0);
-        mount.appendChild(renderer.domElement);
+	useEffect(() => {
+		const mount = mountRef.current;
+		let animationFrameId;
+		let time = 0,
+			lastTime = 0;
 
-        const geo = new THREE.PlaneGeometry(1, 1);
-        const material = new THREE.ShaderMaterial({
-            vertexShader,
-            fragmentShader,
-            uniforms: {
-                u_mouse: { value: vMouseDamp },
-                u_resolution: { value: vResolution },
-                u_pixelRatio: { value: pixelRatioProp },
-                u_shapeSize: { value: shapeSize },
-                u_roundness: { value: roundness },
-                u_borderSize: { value: borderSize },
-                u_circleSize: { value: circleSize },
-                u_circleEdge: { value: circleEdge },
-            },
-            defines: { VAR: variation },
-            transparent: true,
-        });
+		const vMouse = new THREE.Vector2();
+		const vMouseDamp = new THREE.Vector2();
+		const vResolution = new THREE.Vector2();
 
-        const quad = new THREE.Mesh(geo, material);
-        scene.add(quad);
+		let w = 1,
+			h = 1;
 
-        const onPointerMove = (e) => {
-            const rect = mount.getBoundingClientRect();
-            vMouse.set(e.clientX - rect.left, e.clientY - rect.top);
-        };
+		const scene = new THREE.Scene();
+		const camera = new THREE.OrthographicCamera();
+		camera.position.z = 1;
 
-        document.addEventListener("mousemove", onPointerMove);
-        document.addEventListener("pointermove", onPointerMove);
+		const renderer = new THREE.WebGLRenderer({ alpha: true });
+		renderer.setClearColor(0x000000, 0);
+		mount.appendChild(renderer.domElement);
 
-        const resize = () => {
-            const container = mountRef.current;
-            w = container.clientWidth;
-            h = container.clientHeight;
-            const dpr = Math.min(window.devicePixelRatio, 2);
+		const geo = new THREE.PlaneGeometry(1, 1);
+		const material = new THREE.ShaderMaterial({
+			vertexShader,
+			fragmentShader,
+			uniforms: {
+				u_mouse: { value: vMouseDamp },
+				u_resolution: { value: vResolution },
+				u_pixelRatio: { value: pixelRatioProp },
+				u_shapeSize: { value: shapeSize },
+				u_roundness: { value: roundness },
+				u_borderSize: { value: borderSize },
+				u_circleSize: { value: circleSize },
+				u_circleEdge: { value: circleEdge },
+				u_isDarkMode: { value: isDarkMode ? 1.0 : 0.0 },
+				u_isCasualMode: { value: mood === "casual" ? 1.0 : 0.0 },
+			},
+			defines: { VAR: variation },
+			transparent: true,
+		});
 
-            renderer.setSize(w, h);
-            renderer.setPixelRatio(dpr);
+		const quad = new THREE.Mesh(geo, material);
+		scene.add(quad);
 
-            camera.left = -w / 2;
-            camera.right = w / 2;
-            camera.top = h / 2;
-            camera.bottom = -h / 2;
-            camera.updateProjectionMatrix();
+		const onPointerMove = (e) => {
+			const rect = mount.getBoundingClientRect();
+			vMouse.set(e.clientX - rect.left, e.clientY - rect.top);
+		};
 
-            quad.scale.set(w, h, 1);
-            vResolution.set(w, h).multiplyScalar(dpr);
-            material.uniforms.u_pixelRatio.value = dpr;
-        };
+		document.addEventListener("mousemove", onPointerMove);
+		document.addEventListener("pointermove", onPointerMove);
 
-        resize();
-        window.addEventListener("resize", resize);
+		const resize = () => {
+			const container = mountRef.current;
+			if (!container) {
+				return;
+			}
 
-        const ro = new ResizeObserver(() => resize());
-        if (mountRef.current) ro.observe(mountRef.current);
+			w = container.clientWidth;
+			h = container.clientHeight;
 
-        const update = () => {
-            time = performance.now() * 0.001;
-            const dt = time - lastTime;
-            lastTime = time;
+			if (w === 0 || h === 0) {
+				return;
+			}
 
-            ["x", "y"].forEach((k) => {
-                vMouseDamp[k] = THREE.MathUtils.damp(
-                    vMouseDamp[k],
-                    vMouse[k],
-                    8,
-                    dt
-                );
-            });
+			const dpr = Math.min(window.devicePixelRatio, 2);
 
-            renderer.render(scene, camera);
-            animationFrameId = requestAnimationFrame(update);
-        };
-        update();
+			renderer.setSize(w, h);
+			renderer.setPixelRatio(dpr);
 
-        return () => {
-            cancelAnimationFrame(animationFrameId);
-            window.removeEventListener("resize", resize);
-            if (ro) ro.disconnect();
-            document.removeEventListener("mousemove", onPointerMove);
-            document.removeEventListener("pointermove", onPointerMove);
-            mount.removeChild(renderer.domElement);
-            renderer.dispose();
-        };
-    }, [
-        variation,
-        pixelRatioProp,
-        shapeSize,
-        roundness,
-        borderSize,
-        circleSize,
-        circleEdge,
-    ]);
+			camera.left = -w / 2;
+			camera.right = w / 2;
+			camera.top = h / 2;
+			camera.bottom = -h / 2;
+			camera.updateProjectionMatrix();
 
-    return (
-        <div
-            className={className}
-            ref={mountRef}
-            style={{ width: "100%", height: "100%" }}
-        />
-    );
+			quad.scale.set(w, h, 1);
+			vResolution.set(w, h).multiplyScalar(dpr);
+			material.uniforms.u_pixelRatio.value = dpr;
+		};
+
+		resize();
+		window.addEventListener("resize", resize);
+
+		const ro = new ResizeObserver(() => resize());
+		if (mountRef.current) ro.observe(mountRef.current);
+
+		const update = () => {
+			time = performance.now() * 0.001;
+			const dt = time - lastTime;
+			lastTime = time;
+
+			// Update mood uniform when mood changes
+			material.uniforms.u_isCasualMode.value =
+				mood === "casual" ? 1.0 : 0.0;
+
+			["x", "y"].forEach((k) => {
+				vMouseDamp[k] = THREE.MathUtils.damp(
+					vMouseDamp[k],
+					vMouse[k],
+					8,
+					dt
+				);
+			});
+
+			renderer.render(scene, camera);
+			animationFrameId = requestAnimationFrame(update);
+		};
+		update();
+
+		return () => {
+			cancelAnimationFrame(animationFrameId);
+			window.removeEventListener("resize", resize);
+			if (ro) ro.disconnect();
+			document.removeEventListener("mousemove", onPointerMove);
+			document.removeEventListener("pointermove", onPointerMove);
+			mount.removeChild(renderer.domElement);
+			renderer.dispose();
+		};
+	}, [
+		variation,
+		pixelRatioProp,
+		shapeSize,
+		roundness,
+		borderSize,
+		circleSize,
+		circleEdge,
+		isDarkMode,
+		mood,
+	]);
+
+	return (
+		<div
+			className={className}
+			ref={mountRef}
+			style={{ width: "100%", height: "100%" }}
+		/>
+	);
 };
 
 export default ShapeBlur;

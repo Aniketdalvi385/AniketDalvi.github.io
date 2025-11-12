@@ -2,173 +2,216 @@ import React from "react";
 import SectionWrapper from "./ui/SectionWrapper";
 import { cn } from "../lib/utils";
 import { InfiniteScroll } from "./ui/InfiniteScroll";
-import java from "../assets/java.png";
+import { useMood } from "../contexts/MoodContext";
+
 import javascript from "../assets/javascript.png";
-import python from "../assets/python.png";
 import typescript from "../assets/typescript.png";
+import python from "../assets/python.png";
 import reactImage from "../assets/react.png";
 import nextjs from "../assets/nextjs.png";
-import nestjs from "../assets/nestjs.png";
-import html from "../assets/html.png";
-import css from "../assets/css.png";
-import tailwind from "../assets/tailwind.png";
-import bootstrap from "../assets/bootstrap.png";
-import github from "../assets/github.png";
-import docker from "../assets/docker.png";
-import mongoDB from "../assets/mongoDB.png";
 import flask from "../assets/flask.webp";
 import fastapi from "../assets/fastapi.png";
+import nodejs from "../assets/nodejs.png";
+import postgres from "../assets/postgres.png";
+import mongoDB from "../assets/mongoDB.png";
+import redis from "../assets/redis.png";
 import aws from "../assets/aws.png";
+import azure from "../assets/azure.png";
+import docker from "../assets/docker.png";
+import openai from "../assets/openai.png";
+import langchain from "../assets/langchain.png";
+import github from "../assets/github.png";
+import tailwind from "../assets/tailwind.png";
+import bootstrap from "../assets/bootstrap.png";
 
-const TechCard = ({ src, title, style }) => {
+const TechCard = ({ src, title, link, isCasual }) => {
 	return (
-		<div
+		<a
+			href={link || "#"}
+			target={link ? "_blank" : undefined}
+			rel={link ? "noreferrer" : undefined}
 			className={cn(
-				"group relative h-24 w-24 sm:h-32 sm:w-32 md:h-36 md:w-36 lg:h-40 lg:w-40 flex-shrink-0 cursor-pointer overflow-hidden rounded-xl border p-2 sm:p-3 md:p-4 transition-all duration-300",
-				"border-gray-950/[.1] bg-gray-950/[.01] hover:bg-gray-950/[.05]",
-				"dark:border-gray-50/[.1] dark:bg-gray-50/[.10] dark:hover:bg-gray-50/[.15]",
-				"hover:shadow-[0_0_1rem_-0.25rem_#646cff] dark:hover:shadow-[0_0_1rem_-0.25rem_#818cf8]"
+				"group relative min-w-[120px] w-[120px] sm:min-w-[140px] sm:w-[140px] md:min-w-[160px] md:w-[160px] h-20 sm:h-24 md:h-28 flex-shrink-0 cursor-pointer overflow-hidden rounded-xl border p-2 transition-all duration-300",
+				// Business mode colors
+				!isCasual &&
+					"border-gray-950/[.08] bg-gray-950/[.02] hover:bg-gray-950/[.05]",
+				!isCasual &&
+					"dark:border-gray-50/[.08] dark:bg-gray-50/[.04] dark:hover:bg-gray-50/[.08]",
+				// Casual mode colors (red/orange)
+				isCasual &&
+					"border-red-500/20 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/40",
+				isCasual && "dark:border-red-500/30"
 			)}
+			onMouseEnter={(e) => {
+				const isDark =
+					document.documentElement.classList.contains("dark");
+				let shadowColor;
+				if (isCasual) {
+					shadowColor = isDark
+						? "rgba(139, 69, 19, 0.25)"
+						: "rgba(255, 182, 193, 0.35)";
+				} else {
+					shadowColor = isDark
+						? "rgba(129, 140, 248, 0.4)"
+						: "rgba(100, 108, 255, 0.3)";
+				}
+				e.currentTarget.style.boxShadow = `0 0 2rem -0.5rem ${shadowColor}`;
+			}}
+			onMouseLeave={(e) => {
+				e.currentTarget.style.boxShadow = "";
+			}}
+			aria-label={title}
+			title={title}
 		>
-			<div className="flex flex-col items-center justify-center gap-2 sm:gap-3 md:gap-4 h-full">
+			<div className="flex flex-col items-center justify-center gap-1 h-full">
 				<img
 					src={src}
 					alt={title}
-					className="w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20 object-contain transition-transform duration-300 group-hover:scale-110"
+					className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain transition-transform duration-300 group-hover:scale-110"
+					loading="lazy"
 				/>
-				<p className="text-[10px] sm:text-sm md:text-base lg:text-lg font-medium dark:text-white absolute bottom-1 sm:bottom-2 md:bottom-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+				<p
+					className={cn(
+						"text-[10px] sm:text-xs md:text-sm font-medium text-center",
+						isCasual
+							? "text-red-900 dark:text-red-200"
+							: "text-gray-900 dark:text-white"
+					)}
+				>
 					{title}
 				</p>
 			</div>
-		</div>
+		</a>
 	);
 };
 
 const TechStack = () => {
-	const tech = [
+	const { mood } = useMood();
+	const isBusiness = mood === "business";
+	const isCasual = mood === "casual";
+
+	const primary = [
 		{
-			id: 1,
-			src: javascript,
-			title: "JavaScript",
-			style: "shadow-yellow-500",
-			link: "https://www.javascript.com/",
-		},
-		{
-			id: 2,
-			src: typescript,
-			title: "TypeScript",
-			style: "shadow-blue-500",
-			link: "https://www.typescriptlang.org/",
-		},
-		{
-			id: 3,
-			src: python,
-			title: "Python",
-			style: "shadow-blue-400",
-			link: "https://www.python.org/",
-		},
-		{
-			id: 4,
-			src: java,
-			title: "Java",
-			style: "shadow-orange-400",
-			link: "https://www.java.com/en/",
-		},
-		{
-			id: 5,
-			src: reactImage,
-			title: "React",
-			style: "shadow-sky-500",
-			link: "https://react.dev/",
-		},
-		{
-			id: 6,
-			src: nextjs,
-			title: "Next.js",
-			style: "shadow-white",
-			link: "https://nextjs.org/",
-		},
-		{
-			id: 7,
-			src: flask,
-			title: "Flask",
-			style: "shadow-gray-400",
-			link: "https://flask.palletsprojects.com/",
-		},
-		{
-			id: 8,
+			id: "fastapi",
 			src: fastapi,
 			title: "FastAPI",
-			style: "shadow-teal-500",
-			link: "https://fastapi.tiangolo.com/",
+			link: "https://fastapi.tiangolo.com",
 		},
 		{
-			id: 9,
-			src: nestjs,
-			title: "NestJS",
-			style: "shadow-red-400",
-			link: "https://nestjs.com/",
+			id: "python",
+			src: python,
+			title: "Python",
+			link: "https://python.org",
 		},
 		{
-			id: 10,
-			src: html,
-			title: "HTML",
-			style: "shadow-orange-500",
-			link: "https://developer.mozilla.org/en-US/docs/Learn/Getting_started_with_the_web/HTML_basics",
+			id: "flask",
+			src: flask,
+			title: "Flask",
+			link: "https://flask.palletsprojects.com",
 		},
 		{
-			id: 11,
-			src: css,
-			title: "CSS",
-			style: "shadow-blue-500",
-			link: "https://developer.mozilla.org/en-US/docs/Web/CSS",
+			id: "openai",
+			src: openai,
+			title: "OpenAI",
+			link: "https://openai.com",
 		},
 		{
-			id: 12,
-			src: tailwind,
-			title: "Tailwind",
-			style: "shadow-teal-400",
-			link: "https://tailwindcss.com/",
+			id: "langchain",
+			src: langchain,
+			title: "LangChain",
+			link: "https://langchain.com",
 		},
 		{
-			id: 13,
-			src: bootstrap,
-			title: "Bootstrap",
-			style: "shadow-fuchsia-700",
-			link: "https://getbootstrap.com/",
+			id: "postgres",
+			src: postgres,
+			title: "PostgreSQL",
+			link: "https://postgresql.org",
 		},
 		{
-			id: 14,
+			id: "mongodb",
 			src: mongoDB,
 			title: "MongoDB",
-			style: "shadow-green-400",
-			link: "https://www.mongodb.com/",
+			link: "https://mongodb.com",
+		},
+		{ id: "redis", src: redis, title: "Redis", link: "https://redis.io" },
+		{ id: "aws", src: aws, title: "AWS", link: "https://aws.amazon.com" },
+		{
+			id: "azure",
+			src: azure,
+			title: "Azure AI",
+			link: "https://azure.microsoft.com",
 		},
 		{
-			id: 15,
-			src: aws,
-			title: "AWS",
-			style: "shadow-orange-300",
-			link: "https://aws.amazon.com/",
-		},
-		{
-			id: 16,
+			id: "docker",
 			src: docker,
 			title: "Docker",
-			style: "shadow-sky-400",
-			link: "https://www.docker.com/",
-		},
-		{
-			id: 17,
-			src: github,
-			title: "GitHub",
-			style: "shadow-gray-400",
-			link: "https://github.com/",
+			link: "https://docker.com",
 		},
 	];
 
-	const firstRow = tech.slice(0, Math.ceil(tech.length / 2));
-	const secondRow = tech.slice(Math.ceil(tech.length / 2));
+	const secondary = [
+		{
+			id: "javascript",
+			src: javascript,
+			title: "JavaScript",
+			link: "https://javascript.com",
+		},
+		{
+			id: "typescript",
+			src: typescript,
+			title: "TypeScript",
+			link: "https://www.typescriptlang.org",
+		},
+		{
+			id: "react",
+			src: reactImage,
+			title: "React",
+			link: "https://react.dev",
+		},
+		{
+			id: "nextjs",
+			src: nextjs,
+			title: "Next.js",
+			link: "https://nextjs.org",
+		},
+		{
+			id: "nodejs",
+			src: nodejs,
+			title: "Node.js",
+			link: "https://nodejs.org",
+		},
+		{
+			id: "tailwind",
+			src: tailwind,
+			title: "Tailwind",
+			link: "https://tailwindcss.com",
+		},
+		{
+			id: "bootstrap",
+			src: bootstrap,
+			title: "Bootstrap",
+			link: "https://getbootstrap.com",
+		},
+		{
+			id: "github",
+			src: github,
+			title: "GitHub",
+			link: "https://github.com",
+		},
+	];
+
+	const splitBalanced = (arr) => {
+		const half = Math.ceil(arr.length / 2);
+		return [arr.slice(0, half), arr.slice(half)];
+	};
+
+	const [pFirst, pSecond] = splitBalanced(primary);
+	const [sFirst, sSecond] = splitBalanced(secondary);
+
+	const heading = isBusiness ? "Technical Expertise" : "Tech I Break & Fix";
+	const subtitle = isBusiness
+		? "Core skills for backend & AI-first systems are prioritised here. Frontend and tooling experience are listed below."
+		: "I favour FastAPI, Python, and AI stacks — but I’ll also lovingly abuse React and CSS when needed.";
 
 	return (
 		<SectionWrapper
@@ -178,29 +221,44 @@ const TechStack = () => {
 			<div className="w-full max-w-screen-lg mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
 				<div className="pb-4 sm:pb-6 md:pb-8">
 					<p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold inline border-b-4 border-gray-500">
-						Technical Expertise
+						{heading}
 					</p>
 					<p className="py-3 sm:py-4 md:py-6 text-xs sm:text-sm md:text-base text-gray-700 dark:text-gray-300">
-						The technologies I've mastered throughout my
-						professional journey. From frontend frameworks to
-						backend development and cloud services, I bring a
-						diverse and practical skill set to every project.
+						{subtitle}
 					</p>
 				</div>
 
 				<div className="relative space-y-6 sm:space-y-8 md:space-y-10">
 					<div className="-mx-2 sm:-mx-4">
 						<div className="relative">
-							<div className="pointer-events-none absolute inset-y-0 left-0 w-[10%] sm:w-[15%] md:w-1/4 bg-gradient-to-r from-white dark:from-black z-10" />
-							<div className="pointer-events-none absolute inset-y-0 right-0 w-[10%] sm:w-[15%] md:w-1/4 bg-gradient-to-l from-white dark:from-black z-10" />
+							<div
+								className={cn(
+									"pointer-events-none absolute inset-y-0 left-0 w-[10%] sm:w-[12%] md:w-1/4 bg-gradient-to-r z-10",
+									isCasual
+										? "from-[#fafafa] dark:from-[#141414]"
+										: "from-white dark:from-black"
+								)}
+							/>
+							<div
+								className={cn(
+									"pointer-events-none absolute inset-y-0 right-0 w-[10%] sm:w-[12%] md:w-1/4 bg-gradient-to-l z-10",
+									isCasual
+										? "from-[#fafafa] dark:from-[#141414]"
+										: "from-white dark:from-black"
+								)}
+							/>
 
 							<InfiniteScroll
 								direction="left"
 								speed="slow"
 								className="py-3 sm:py-4 md:py-5 lg:py-6"
 							>
-								{firstRow.map((item) => (
-									<TechCard key={item.id} {...item} />
+								{pFirst.map((t) => (
+									<TechCard
+										key={t.id}
+										{...t}
+										isCasual={isCasual}
+									/>
 								))}
 							</InfiniteScroll>
 
@@ -209,8 +267,40 @@ const TechStack = () => {
 								speed="slow"
 								className="py-3 sm:py-4 md:py-5 lg:py-6"
 							>
-								{secondRow.map((item) => (
-									<TechCard key={item.id} {...item} />
+								{pSecond.map((t) => (
+									<TechCard
+										key={t.id}
+										{...t}
+										isCasual={isCasual}
+									/>
+								))}
+							</InfiniteScroll>
+
+							<InfiniteScroll
+								direction="left"
+								speed="normal"
+								className="py-2 sm:py-3 md:py-4 lg:py-5"
+							>
+								{sFirst.map((t) => (
+									<TechCard
+										key={t.id}
+										{...t}
+										isCasual={isCasual}
+									/>
+								))}
+							</InfiniteScroll>
+
+							<InfiniteScroll
+								direction="right"
+								speed="normal"
+								className="py-2 sm:py-3 md:py-4 lg:py-5"
+							>
+								{sSecond.map((t) => (
+									<TechCard
+										key={t.id}
+										{...t}
+										isCasual={isCasual}
+									/>
 								))}
 							</InfiniteScroll>
 						</div>
@@ -224,34 +314,24 @@ const TechStack = () => {
 							<div className="space-y-3 text-sm sm:text-base text-gray-700 dark:text-gray-300">
 								<p>
 									<span className="font-medium text-gray-900 dark:text-white">
-										Frontend Development:
+										Backend & AI:
 									</span>{" "}
-									Expert in React and Next.js with strong
-									TypeScript integration. Skilled in creating
-									responsive interfaces using Tailwind CSS and
-									implementing complex UI components with
-									modern animation libraries.
+									FastAPI-first APIs, Python, LangChain/OpenAI
+									stacks, embeddings, RAG, and DB design.
 								</p>
 								<p>
 									<span className="font-medium text-gray-900 dark:text-white">
-										Backend Development:
+										Cloud & Infra:
 									</span>{" "}
-									Proficient in Python-based frameworks
-									(Flask, FastAPI) and Node.js ecosystems
-									(NestJS). Experienced in building RESTful
-									APIs, implementing authentication systems,
-									and integrating with third-party services.
+									AWS/Azure, Docker, CI/CD and
+									observability/monitoring.
 								</p>
 								<p>
 									<span className="font-medium text-gray-900 dark:text-white">
-										Database & Cloud:
+										Frontend:
 									</span>{" "}
-									Skilled in MongoDB database design, cluster
-									setup, and optimization. Familiar with AWS
-									services for deployment, storage, and AI
-									integration. Experienced with Docker
-									containerization for consistent development
-									and deployment environments.
+									React + Next.js, TypeScript and Tailwind for
+									production UIs.
 								</p>
 							</div>
 						</div>

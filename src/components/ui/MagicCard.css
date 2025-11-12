@@ -1,0 +1,75 @@
+.magic-card {
+	background: #171717;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	overflow: hidden;
+	position: relative;
+	box-shadow: 0px 0px 3px 1px #00000088;
+	cursor: pointer;
+	border-radius: 1rem; /* rounded-2xl equivalent, keeping corners round */
+}
+
+.magic-card-content {
+	border-radius: 0.5rem; /* rounded-lg equivalent */
+	background: #171717;
+	width: calc(100% - 4px);
+	height: calc(100% - 4px);
+	z-index: 1;
+	padding: 20px;
+	color: white;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.magic-card-content::before {
+	opacity: 0;
+	transition: opacity 300ms;
+	content: " ";
+	display: block;
+	background: white;
+	width: 5px;
+	height: 50px;
+	position: absolute;
+	filter: blur(50px);
+	overflow: hidden;
+}
+
+.magic-card:hover .magic-card-content::before {
+	opacity: 1;
+}
+
+.magic-card::before {
+	opacity: 0;
+	content: " ";
+	position: absolute;
+	display: block;
+	width: 80px;
+	height: 360px;
+	background: linear-gradient(#ff2288, #387ef0);
+	transition: opacity 300ms;
+	animation: rotation_9018 8000ms infinite linear;
+	animation-play-state: paused;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.magic-card:hover::before {
+	opacity: 1;
+	animation-play-state: running;
+}
+
+.magic-card::after {
+	position: absolute;
+	content: " ";
+	display: block;
+	width: 250px;
+	height: 360px;
+	background: #17171733;
+	backdrop-filter: blur(50px);
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}

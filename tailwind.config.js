@@ -76,11 +76,16 @@ module.exports = {
 						opacity: 0,
 					},
 				},
+				rotation_9018: {
+					"0%": { transform: "rotate(0deg)" },
+					"100%": { transform: "rotate(360deg)" },
+				},
 			},
 			animation: {
 				"accordion-down": "accordion-down 0.2s ease-out",
 				"accordion-up": "accordion-up 0.2s ease-out",
 				"meteor-effect": "meteor 5s linear infinite",
+				rotation_9018: "rotation_9018 8s linear infinite",
 			},
 		},
 	},

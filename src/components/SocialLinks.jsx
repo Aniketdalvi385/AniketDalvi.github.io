@@ -2,8 +2,11 @@ import React from "react";
 import { FaGithub, FaLinkedin } from "react-icons/fa";
 import { HiOutlineMail } from "react-icons/hi";
 import { BsFillPersonLinesFill } from "react-icons/bs";
+import { useMood } from "../contexts/MoodContext";
 
 const SocialLinks = () => {
+	const { mood } = useMood();
+	const isCasual = mood === "casual";
 	const links = [
 		{
 			id: 1,
@@ -55,15 +58,23 @@ const SocialLinks = () => {
 						className={`
                             flex justify-between items-center w-40 h-14 px-4 
                             ml-[-100px] 
-                            bg-gray-200 dark:bg-gray-800 
+                            ${
+								isCasual
+									? "bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50 border border-red-500 dark:border-[#ff8c1a]"
+									: "bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700"
+							}
                             hover:ml-[-10px] hover:rounded-md 
-                            duration-500
+                            duration-500 transition-colors
                             ${style}
                         `}
 					>
 						<a
 							href={href}
-							className="flex justify-between items-center w-full text-gray-700 dark:text-gray-200"
+							className={`flex justify-between items-center w-full transition-colors ${
+								isCasual
+									? "text-red-700 dark:text-[#ff8c1a] hover:text-[#ff8c1a] dark:hover:text-[#ff8c1a]"
+									: "text-gray-700 dark:text-gray-200 hover:text-gray-800 dark:hover:text-gray-100"
+							}`}
 							download={download}
 							target="_blank"
 							rel="noreferrer"

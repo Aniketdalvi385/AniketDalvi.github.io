@@ -1,68 +1,332 @@
-@import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Great+Vibes&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 100% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --ring: 215 20.2% 65.1%;
-    --radius: 0.5rem;
-  }
+	:root {
+		--background: 0 0% 100%;
+		--foreground: 222.2 47.4% 11.2%;
+		--muted: 210 40% 96.1%;
+		--muted-foreground: 215.4 16.3% 46.9%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 222.2 47.4% 11.2%;
+		--border: 214.3 31.8% 91.4%;
+		--input: 214.3 31.8% 91.4%;
+		--card: 0 0% 100%;
+		--card-foreground: 222.2 47.4% 11.2%;
+		--primary: 222.2 47.4% 11.2%;
+		--primary-foreground: 210 40% 98%;
+		--secondary: 210 40% 96.1%;
+		--secondary-foreground: 222.2 47.4% 11.2%;
+		--accent: 210 40% 96.1%;
+		--accent-foreground: 222.2 47.4% 11.2%;
+		--destructive: 0 100% 50%;
+		--destructive-foreground: 210 40% 98%;
+		--ring: 215 20.2% 65.1%;
+		--radius: 0.5rem;
+	}
 
-  .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 1.2%;
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --ring: 216 34% 17%;
-    --radius: 0.5rem;
-  }
+	.dark {
+		--background: 224 71% 4%;
+		--foreground: 213 31% 91%;
+		--muted: 223 47% 11%;
+		--muted-foreground: 215.4 16.3% 56.9%;
+		--accent: 216 34% 17%;
+		--accent-foreground: 210 40% 98%;
+		--popover: 224 71% 4%;
+		--popover-foreground: 215 20.2% 65.1%;
+		--border: 216 34% 17%;
+		--input: 216 34% 17%;
+		--card: 224 71% 4%;
+		--card-foreground: 213 31% 91%;
+		--primary: 210 40% 98%;
+		--primary-foreground: 222.2 47.4% 1.2%;
+		--secondary: 222.2 47.4% 11.2%;
+		--secondary-foreground: 210 40% 98%;
+		--destructive: 0 63% 31%;
+		--destructive-foreground: 210 40% 98%;
+		--ring: 216 34% 17%;
+		--radius: 0.5rem;
+	}
 
-  html {
-    font-family: "Raleway", sans-serif;
-  }
+	/* Business Casual Mood - Light Mode (default, explicit) */
+	:root[data-mood="business"] {
+		--background: 0 0% 100%;
+		--foreground: 222.2 47.4% 11.2%;
+		--muted: 210 40% 96.1%;
+		--muted-foreground: 215.4 16.3% 46.9%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 222.2 47.4% 11.2%;
+		--border: 214.3 31.8% 91.4%;
+		--input: 214.3 31.8% 91.4%;
+		--card: 0 0% 100%;
+		--card-foreground: 222.2 47.4% 11.2%;
+		--primary: 222.2 47.4% 11.2%;
+		--primary-foreground: 210 40% 98%;
+		--secondary: 210 40% 96.1%;
+		--secondary-foreground: 222.2 47.4% 11.2%;
+		--accent: 210 40% 96.1%;
+		--accent-foreground: 222.2 47.4% 11.2%;
+		--destructive: 0 100% 50%;
+		--destructive-foreground: 210 40% 98%;
+		--ring: 215 20.2% 65.1%;
+		--radius: 0.5rem;
+	}
+
+	/* Business Casual Mood - Dark Mode */
+	:root[data-mood="business"].dark {
+		--background: 224 71% 4%;
+		--foreground: 213 31% 91%;
+		--muted: 223 47% 11%;
+		--muted-foreground: 215.4 16.3% 56.9%;
+		--accent: 216 34% 17%;
+		--accent-foreground: 210 40% 98%;
+		--popover: 224 71% 4%;
+		--popover-foreground: 215 20.2% 65.1%;
+		--border: 216 34% 17%;
+		--input: 216 34% 17%;
+		--card: 224 71% 4%;
+		--card-foreground: 213 31% 91%;
+		--primary: 210 40% 98%;
+		--primary-foreground: 222.2 47.4% 1.2%;
+		--secondary: 222.2 47.4% 11.2%;
+		--secondary-foreground: 210 40% 98%;
+		--destructive: 0 63% 31%;
+		--destructive-foreground: 210 40% 98%;
+		--ring: 216 34% 17%;
+		--radius: 0.5rem;
+	}
+
+	:root[data-mood="casual"] {
+		--background: 0 0% 98%;
+		--foreground: 0 0% 10%;
+		--muted: 0 0% 90%;
+		--muted-foreground: 0 0% 40%;
+		--popover: 0 0% 98%;
+		--popover-foreground: 0 0% 10%;
+		--border: 0 100% 70%;
+		--input: 0 100% 70%;
+		--card: 0 0% 98%;
+		--card-foreground: 0 0% 10%;
+		--primary: 0 100% 50%;
+		--primary-foreground: 0 0% 100%;
+		--secondary: 20 100% 60%;
+		--secondary-foreground: 0 0% 10%;
+		--accent: 30 100% 55%;
+		--accent-foreground: 0 0% 100%;
+		--destructive: 0 100% 50%;
+		--destructive-foreground: 0 0% 100%;
+		--ring: 0 100% 60%;
+		--radius: 0.75rem;
+	}
+
+	/* Mentally Casual Mood - Dark Mode (Bold red/orange neon) */
+	:root[data-mood="casual"].dark {
+		--background: 0 0% 8%;
+		--foreground: 0 0% 95%;
+		--muted: 0 0% 15%;
+		--muted-foreground: 0 0% 70%;
+		--accent: 30 100% 55%;
+		--accent-foreground: 0 0% 8%;
+		--popover: 0 0% 10%;
+		--popover-foreground: 0 0% 95%;
+		--border: 0 100% 50%;
+		--input: 0 100% 50%;
+		--card: 0 0% 10%;
+		--card-foreground: 0 0% 95%;
+		--primary: 0 100% 60%;
+		--primary-foreground: 0 0% 8%;
+		--secondary: 20 100% 40%;
+		--secondary-foreground: 0 0% 95%;
+		--destructive: 0 80% 50%;
+		--destructive-foreground: 0 0% 95%;
+		--ring: 0 100% 60%;
+		--radius: 0.75rem;
+	}
+
+	html {
+		font-family: "Raleway", sans-serif;
+	}
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
+	* {
+		@apply border-border;
+	}
+	body {
+		@apply bg-background text-foreground;
+		font-feature-settings: "rlig" 1, "calt" 1;
+	}
+}
+
+/* Override hardcoded colors when in casual mode */
+:root[data-mood="casual"] body {
+	background-color: hsl(var(--background)) !important;
+	color: hsl(var(--foreground)) !important;
+}
+
+/* Override bg-white and bg-black classes */
+:root[data-mood="casual"] [class*="bg-white"] {
+	background-color: hsl(var(--background)) !important;
+}
+
+:root[data-mood="casual"] [class*="bg-black"] {
+	background-color: hsl(var(--background)) !important;
+}
+
+:root[data-mood="casual"].dark [class*="bg-white"],
+:root[data-mood="casual"].dark [class*="bg-black"] {
+	background-color: hsl(var(--background)) !important;
+}
+
+/* Override text-gray classes */
+:root[data-mood="casual"] [class*="text-gray"] {
+	color: hsl(var(--foreground)) !important;
+}
+
+:root[data-mood="casual"].dark [class*="text-white"],
+:root[data-mood="casual"].dark [class*="text-gray"] {
+	color: hsl(var(--foreground)) !important;
+}
+
+/* Override border-gray classes */
+:root[data-mood="casual"] [class*="border-gray"] {
+	border-color: hsl(var(--border)) !important;
+}
+
+:root[data-mood="casual"].dark [class*="border-gray"] {
+	border-color: hsl(var(--border)) !important;
+}
+
+/* Navbar specific overrides for casual mode */
+:root[data-mood="casual"] nav {
+	background: linear-gradient(
+		to right,
+		hsl(var(--background)),
+		hsl(var(--background)),
+		hsl(var(--muted))
+	) !important;
+}
+
+:root[data-mood="casual"].dark nav {
+	background: linear-gradient(
+		to right,
+		hsl(var(--background)),
+		hsl(var(--background)),
+		hsl(var(--muted))
+	) !important;
+}
+
+/* Override navbar button backgrounds */
+:root[data-mood="casual"] [class*="bg-gray-100"],
+:root[data-mood="casual"] [class*="bg-gray-800"] {
+	background-color: hsl(var(--muted)) !important;
+}
+
+:root[data-mood="casual"] [class*="hover:bg-gray-200"],
+:root[data-mood="casual"] [class*="hover:bg-gray-700"] {
+	background-color: hsl(var(--accent)) !important;
+}
+
+:root[data-mood="casual"].dark [class*="bg-gray-100"],
+:root[data-mood="casual"].dark [class*="bg-gray-800"] {
+	background-color: hsl(var(--muted)) !important;
+}
+
+:root[data-mood="casual"].dark [class*="hover:bg-gray-200"],
+:root[data-mood="casual"].dark [class*="hover:bg-gray-700"] {
+	background-color: hsl(var(--accent)) !important;
+}
+
+/* Override navbar link hover colors */
+:root[data-mood="casual"] [class*="hover:text-blue-600"],
+:root[data-mood="casual"] [class*="hover:text-blue-400"] {
+	color: hsl(var(--primary)) !important;
+}
+
+/* Navbar text colors - use bright red in casual mode for both light and dark */
+:root[data-mood="casual"] nav [class*="text-gray-700"],
+:root[data-mood="casual"] nav [class*="text-gray-200"] {
+	color: hsl(var(--primary)) !important;
+}
+
+:root[data-mood="casual"].dark nav [class*="text-gray-700"],
+:root[data-mood="casual"].dark nav [class*="text-gray-200"] {
+	color: hsl(var(--primary)) !important;
+}
+
+/* GradientButton overrides for casual mode */
+:root[data-mood="casual"] .gradient-button {
+	background: linear-gradient(hsl(var(--background)), hsl(var(--background)))
+			padding-box,
+		linear-gradient(to right, #ff4444, #ff6b35, #ff8c42) border-box !important;
+}
+
+:root[data-mood="casual"] .gradient-button .gradient-text {
+	background-image: linear-gradient(
+		to right,
+		#ff4444,
+		#ff6b35,
+		#ff8c42
+	) !important;
+	-webkit-background-clip: text !important;
+	-webkit-text-fill-color: transparent !important;
+	background-clip: text !important;
+}
+
+:root[data-mood="casual"].dark .gradient-button {
+	background: linear-gradient(hsl(var(--background)), hsl(var(--background)))
+			padding-box,
+		linear-gradient(to right, #ff4444, #ff6b35, #ff8c42) border-box !important;
+}
+
+/* Override hardcoded button gradients in casual mode - Download Resume button */
+:root[data-mood="casual"] [class*="from-gray-800"][class*="to-gray-600"],
+:root[data-mood="casual"] button[class*="from-gray-800"],
+:root[data-mood="casual"] a[class*="from-gray-800"] {
+	background: linear-gradient(to right, #ff4444, #ff6b35, #ff8c42) !important;
+	border: none !important;
+}
+
+:root[data-mood="casual"]
+	[class*="from-gray-800"][class*="to-gray-600"]
+	.gradient-text,
+:root[data-mood="casual"] button[class*="from-gray-800"] .gradient-text,
+:root[data-mood="casual"] a[class*="from-gray-800"] .gradient-text {
+	background-image: linear-gradient(to right, #ffffff, #ffe5d9) !important;
+	-webkit-background-clip: text !important;
+	-webkit-text-fill-color: transparent !important;
+	background-clip: text !important;
+	color: white !important;
+}
+
+:root[data-mood="casual"].dark [class*="from-gray-800"][class*="to-gray-600"],
+:root[data-mood="casual"].dark button[class*="from-gray-800"],
+:root[data-mood="casual"].dark a[class*="from-gray-800"] {
+	background: linear-gradient(to right, #ff4444, #ff6b35, #ff8c42) !important;
+	border: none !important;
+}
+
+:root[data-mood="casual"].dark
+	[class*="from-gray-800"][class*="to-gray-600"]
+	.gradient-text,
+:root[data-mood="casual"].dark button[class*="from-gray-800"] .gradient-text,
+:root[data-mood="casual"].dark a[class*="from-gray-800"] .gradient-text {
+	background-image: linear-gradient(to right, #ffffff, #ffe5d9) !important;
+	-webkit-background-clip: text !important;
+	-webkit-text-fill-color: transparent !important;
+	background-clip: text !important;
+	color: white !important;
+}
+
+@keyframes rotation_9018 {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
 }
