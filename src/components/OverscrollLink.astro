@@ -1,0 +1,272 @@
+---
+interface Props {
+	href: string;
+	index: string;
+	title: string;
+	/** Rendered with an outline stroke, as in the design. */
+	titleStroke: string;
+	veilLabel: string;
+	veilTitle: string;
+}
+
+const { href, index, title, titleStroke, veilLabel, veilTitle } = Astro.props;
+---
+
+<!-- Transition veil: slides in from the direction of travel. -->
+<div class="veil" data-veil aria-hidden="true">
+	<span class="veil__label">{veilLabel}</span>
+	<span class="veil__title">{veilTitle}</span>
+</div>
+
+<a class="over" data-over data-href={href} href={href}>
+	<div class="over__head">
+		<span class="eyebrow">NEXT — {index}</span>
+		<!-- Two labels, one shown per input model. The gesture is wheel-only
+		     (disabled on coarse pointers below), so on touch the block is an
+		     ordinary link and must say so rather than instructing a scroll that
+		     does nothing. -->
+		<span class="eyebrow eyebrow--fine">KEEP SCROLLING ↓</span>
+		<span class="eyebrow eyebrow--coarse">TAP TO CONTINUE →</span>
+	</div>
+	<div class="over__title">{title} <span class="stroke">{titleStroke}</span></div>
+	<!-- Gesture readout: the bar only ever fills from wheel accumulation, so on
+	     touch it would sit at a permanent 0% under the words "release to
+	     continue" — a control that appears broken. Hidden on coarse pointers. -->
+	<div class="over__gauge">
+		<div class="over__bar"><div class="over__fill" data-fill></div></div>
+		<div class="over__pct"><span data-pct>0</span>% — release to continue</div>
+	</div>
+</a>
+
+<style>
+	.veil {
+		position: fixed;
+		inset: 0;
+		z-index: 200;
+		background: var(--bg);
+		color: var(--fg);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 16px;
+		transform: translateY(101%);
+		transition: transform 0.72s var(--ease-veil);
+		pointer-events: none;
+	}
+	.veil.is-open {
+		transform: translateY(0);
+		pointer-events: auto;
+	}
+
+	.veil__label {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.2em;
+		color: var(--mut);
+	}
+
+	.veil__title {
+		font: 600 var(--t-display) / 1 "Clash Display", sans-serif;
+		letter-spacing: -0.04em;
+	}
+
+	.over {
+		display: block;
+		position: relative;
+		padding: clamp(30px, 4vw, 52px) var(--gutter) clamp(40px, 5vw, 64px);
+		transition: box-shadow 0.2s var(--ease-out), background 0.2s var(--ease-out);
+	}
+	.over:hover {
+		background: var(--faint);
+		box-shadow: var(--wash-lg);
+	}
+
+	.over__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		margin-bottom: clamp(18px, 2vw, 26px);
+	}
+
+	.eyebrow {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut-2);
+	}
+
+	.over__title {
+		font: 600 var(--t-display) / 0.94 "Clash Display", sans-serif;
+		letter-spacing: -0.04em;
+	}
+
+	.stroke {
+		-webkit-text-stroke: clamp(1px, 0.18vw, 2px) var(--fg);
+		color: transparent;
+	}
+
+	/* The label pair and the gauge both key off the same condition the JS uses to
+	   gate the gesture — `pointer: coarse` — so the UI and the behaviour cannot
+	   drift apart. Default state is the fine-pointer one. */
+	.eyebrow--coarse {
+		display: none;
+	}
+	@media (pointer: coarse) {
+		.eyebrow--fine {
+			display: none;
+		}
+		.eyebrow--coarse {
+			display: inline;
+		}
+		.over__gauge {
+			display: none;
+		}
+		/* The gauge carried the block's bottom spacing; without it the title sits
+		   too close to the padding edge. */
+		.over__title {
+			margin-bottom: clamp(6px, 1vw, 12px);
+		}
+	}
+
+	.over__bar {
+		margin-top: clamp(22px, 2.6vw, 34px);
+		height: 2px;
+		background: var(--line);
+		position: relative;
+		overflow: hidden;
+	}
+
+	/* scaleX, not width — rewritten on every wheel event during the gesture. */
+	.over__fill {
+		position: absolute;
+		left: 0;
+		top: 0;
+		height: 100%;
+		width: 100%;
+		transform: scaleX(0);
+		transform-origin: left;
+		background: var(--fg);
+		transition: transform 0.1s linear;
+	}
+
+	.over__pct {
+		margin-top: 10px;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.veil {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	// Accumulate overscroll past the edge of the page and navigate on completion.
+	// Threshold and decay rate come from the source design.
+	const THRESHOLD = 780;
+
+	document.querySelectorAll<HTMLAnchorElement>("[data-over]").forEach((link) => {
+		const href = link.dataset.href;
+		if (!href) return;
+
+		const veil = document.querySelector<HTMLElement>("[data-veil]");
+		const fill = link.querySelector<HTMLElement>("[data-fill]");
+		const pct = link.querySelector<HTMLElement>("[data-pct]");
+
+		const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const coarse = window.matchMedia("(pointer: coarse)").matches;
+
+		let over = 0;
+		let lastPush = 0;
+		let decaying = false;
+		let navigating = false;
+		let raf = 0;
+
+		const render = () => {
+			const p = Math.min(1, over / THRESHOLD);
+			if (fill) fill.style.transform = "scaleX(" + p.toFixed(4) + ")";
+			if (pct) pct.textContent = String(Math.round(p * 100));
+		};
+
+		const go = () => {
+			if (navigating) return;
+			navigating = true;
+			over = THRESHOLD;
+			render();
+			veil?.classList.add("is-open");
+			window.setTimeout(() => {
+				window.location.href = href;
+			}, reduce ? 80 : 700);
+		};
+
+		// Ease back to zero once the user stops pushing, so a stray flick at the
+		// edge doesn't leave the bar stuck part-way.
+		const decay = () => {
+			if (navigating) return;
+			if (performance.now() - lastPush > 200 && over > 0) {
+				over *= 0.88;
+				if (over < 6) over = 0;
+				render();
+			}
+			if (over > 0) raf = requestAnimationFrame(decay);
+			else decaying = false;
+		};
+
+		const push = (delta: number) => {
+			over = Math.max(0, over + delta);
+			lastPush = performance.now();
+			render();
+			if (over >= THRESHOLD) {
+				go();
+				return;
+			}
+			if (!decaying) {
+				decaying = true;
+				raf = requestAnimationFrame(decay);
+			}
+		};
+
+		const atEdge = () => {
+			const max = document.documentElement.scrollHeight - window.innerHeight;
+			return window.scrollY >= max - 2;
+		};
+
+		// Wheel is only intercepted at the relevant edge, and only for deltas
+		// pushing further past it — normal scrolling is never touched.
+		if (!reduce && !coarse) {
+			window.addEventListener(
+				"wheel",
+				(e) => {
+					if (e.ctrlKey || navigating) return;
+					const d = e.deltaY * (e.deltaMode === 1 ? 28 : 1);
+					if ((atEdge() && d > 0) || over > 0) {
+						if (d > 0 || over > 0) e.preventDefault();
+						push(d);
+					}
+				},
+				{ passive: false }
+			);
+		}
+
+		link.addEventListener("click", (e) => {
+			e.preventDefault();
+			go();
+		});
+
+		// Reset if the user scrolls away from the edge.
+		window.addEventListener(
+			"scroll",
+			() => {
+				if (!navigating && !atEdge() && over > 0 && performance.now() - lastPush > 300) {
+					over = 0;
+					render();
+				}
+			},
+			{ passive: true }
+		);
+
+		window.addEventListener("pagehide", () => cancelAnimationFrame(raf));
+	});
+</script>

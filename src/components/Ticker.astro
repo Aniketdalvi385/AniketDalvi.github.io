@@ -1,0 +1,76 @@
+---
+import { buildLoop } from "../data/site";
+
+interface Props {
+	words: string[];
+	separator?: string;
+	/** "mono" for the skills strip, "display" for the metrics strip. */
+	variant?: "mono" | "display";
+	reverse?: boolean;
+	duration?: string;
+}
+
+const {
+	words,
+	separator = "/",
+	variant = "mono",
+	reverse = false,
+	duration = "26s",
+} = Astro.props;
+
+const items = buildLoop(words, separator);
+---
+
+<div class="ticker">
+	<div
+		class:list={["ticker__track", `ticker__track--${variant}`]}
+		style={`animation-duration:${duration};animation-direction:${reverse ? "reverse" : "normal"}`}
+		aria-hidden="true"
+	>
+		{items.map((t) => <span class:list={["word", { muted: t.muted }]}>{t.w}</span>)}
+	</div>
+</div>
+
+<style>
+	/* Full-bleed, as in the design. No rules above or below either: the tinted
+	   band is its own edge. It used to inset to --rail so it lined up with the
+	   fixed vertical rails; with those gone the inset had nothing to align to
+	   and just read as an arbitrary margin. */
+	.ticker {
+		overflow: hidden;
+		white-space: nowrap;
+		background: var(--faint);
+	}
+
+	.ticker__track {
+		display: inline-flex;
+		will-change: transform;
+		animation-name: mq;
+		animation-timing-function: linear;
+		animation-iteration-count: infinite;
+	}
+
+	.ticker__track--mono {
+		font: 500 var(--t-body) "JetBrains Mono", monospace;
+		padding: 18px 0;
+	}
+
+	.ticker__track--display {
+		font: 500 var(--t-body-lg) "Clash Display", sans-serif;
+		letter-spacing: -0.01em;
+		padding: 20px 0;
+	}
+
+	.word {
+		color: var(--fg);
+	}
+	.ticker__track--mono .word {
+		padding: 0 clamp(18px, 1.6vw, 30px);
+	}
+	.ticker__track--display .word {
+		padding: 0 clamp(18px, 1.8vw, 34px);
+	}
+	.muted {
+		color: var(--mut);
+	}
+</style>

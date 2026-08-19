@@ -1,0 +1,744 @@
+---
+import { CONTACT, SITE } from "../data/site";
+
+// No backend on a static host, so submissions POST to Forminit. The URL is
+// committed rather than kept in .env because it is public either way — Astro
+// inlines PUBLIC_* vars into the client bundle, and the browser shows it in the
+// network request regardless. Committing it also means the GitHub Actions build
+// gets it: that workflow passes no env vars, so an .env would leave production
+// silently falling back to a mailto: draft.
+// PUBLIC_FORM_ENDPOINT still overrides it for local testing against another
+// endpoint; setting it to "" restores the mailto: fallback.
+const endpoint =
+	import.meta.env.PUBLIC_FORM_ENDPOINT ?? "https://forminit.com/f/negrJZdw";
+---
+
+<section id="contact" class="contact">
+
+	<p class="eyebrow" data-reveal>/ GET IN TOUCH</p>
+	{/* Each line carries its own inline sketch stroke. Inline rather than a
+	    background image because the reveal animates `stroke-dashoffset`, which
+	    walks along the real path — scaling a background image just stretches a
+	    pre-drawn line. Two different paths so the lines don't look stamped. */}
+	<a class="mailto" href={`mailto:${CONTACT.email}`} data-reveal>
+		<span class="mailto__line">
+			aniketdalvi385
+			<svg class="scribble" viewBox="0 0 300 14" fill="none" aria-hidden="true" preserveAspectRatio="none">
+				<path
+					d="M4 9.5 C 46 5.4, 92 10.8, 138 7.1 S 214 4.2, 252 8.6 S 288 6.4, 296 5.1"
+					stroke="currentColor"
+					stroke-width="2.6"
+					stroke-linecap="round"
+				></path>
+			</svg>
+		</span><br /><span class="mailto__line">
+			@gmail.com
+			<svg class="scribble" viewBox="0 0 300 14" fill="none" aria-hidden="true" preserveAspectRatio="none">
+				<path
+					d="M5 7.6 C 40 11.2, 86 5.6, 130 9.4 S 206 11.4, 246 6.2 S 284 8.4, 295 9.8"
+					stroke="currentColor"
+					stroke-width="2.6"
+					stroke-linecap="round"
+				></path>
+			</svg>
+		</span>
+	</a>
+
+	<div class="contact__grid" data-reveal>
+		<div>
+			<p class="eyebrow">/ QUICK CONTACT</p>
+			<p class="blurb">
+				I'm open to full-time roles, and to interesting technical problems generally. Currently in Mumbai, open to remote and relocation.
+				Drop a note and I'll get back quickly.
+			</p>
+			<div class="links">
+				<a href={CONTACT.resume} target="_blank" rel="noopener">Resume ↗</a>
+				<a href={CONTACT.phoneHref}>{CONTACT.phone}</a>
+				<a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
+				<a href={CONTACT.linkedin} target="_blank" rel="noopener">
+					LinkedIn — aniketdalvi385 ↗
+				</a>
+				<a href={CONTACT.github} target="_blank" rel="noopener">GitHub ↗</a>
+			</div>
+		</div>
+
+		<div>
+			{/* `novalidate` hands validation to the script so the messages match the
+			    page's voice rather than the browser's. `maxlength` is kept on the
+			    elements themselves: it stops the input at the cap as you type,
+			    which no amount of submit-time checking can do. */}
+			<form id="contactForm" data-endpoint={endpoint} novalidate>
+				<label>
+					<span class="label">NAME *</span>
+					<input
+						name="name"
+						type="text"
+						placeholder="Your name"
+						autocomplete="name"
+						maxlength="120"
+						required
+					/>
+				</label>
+				<label>
+					<span class="label">EMAIL *</span>
+					<input
+						name="email"
+						type="email"
+						placeholder="you@company.com"
+						autocomplete="email"
+						maxlength="254"
+						required
+					/>
+				</label>
+				<label>
+					<span class="label">COMPANY / TOPIC</span>
+					<input
+						name="topic"
+						type="text"
+						placeholder="What's this about?"
+						maxlength="160"
+					/>
+				</label>
+				<label>
+					<span class="label">MESSAGE *</span>
+					<textarea
+						name="message"
+						rows="4"
+						placeholder="Role, team, or what you're working on."
+						maxlength="4000"
+						required></textarea>
+				</label>
+
+				<span class="error" id="formError" role="alert"></span>
+
+				<button type="submit" class="send hov-lift">Send Message →</button>
+			</form>
+
+			<div class="sent" id="formSent" hidden>
+				<p class="eyebrow">/ MESSAGE SENT</p>
+				<p class="sent__head">Thanks — I'll be in touch soon.</p>
+				<button type="button" class="again" id="sendAgain">Send another</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="foot">
+		<div class="foot__links">
+			<a href={CONTACT.resume} target="_blank" rel="noopener">RESUME ↗</a>
+			<a href={CONTACT.github} target="_blank" rel="noopener">GITHUB ↗</a>
+			<a href={CONTACT.linkedin} target="_blank" rel="noopener">LINKEDIN ↗</a>
+			<a href={CONTACT.phoneHref}>{CONTACT.phone}</a>
+		</div>
+		<div class="foot__meta">
+			<span>© {SITE.year} ANIKET DALVI</span>
+			<a href="#top">BACK TO TOP ↑</a>
+		</div>
+	</div>
+</section>
+
+<style>
+	.contact {
+		position: relative;
+		padding: clamp(112px, 13vw, 208px) var(--gutter) 44px;
+		background: var(--card);
+		transition: background 0.5s ease;
+	}
+
+	/* The 112px floor is the desktop "big breath" and never engages there — the
+	   13vw term overtakes it above ~860px. On a phone the floor *is* the value:
+	   112px of an 800px screen spent before the section says anything. Statement
+	   was reduced for the same reason; this keeps the pacing generous without
+	   opening the section on a blank screen. */
+	@media (max-width: 640px) {
+		.contact {
+			padding-top: 76px;
+		}
+	}
+
+	.eyebrow {
+		margin: 0 0 clamp(18px, 2vw, 28px);
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut-2);
+	}
+
+	/* Full strength at rest — it is the largest thing on the page and should read
+	   that way. Hover sweeps a highlight block up behind the text rather than
+	   fading it: at display size an opacity animation promotes the text to its
+	   own composited layer and re-rasterises the glyphs, so the whole address
+	   looks blurry mid-transition. An underline was the other option, but at this
+	   size the "g" descender in @gmail hangs through any baseline rule.
+	   `box-decoration-break` keeps the block continuous across the line break. */
+	.mailto {
+		display: block;
+		width: fit-content;
+		font: 600 var(--t-display) / 0.94 "Clash Display", sans-serif;
+		letter-spacing: -0.04em;
+		color: var(--fg);
+	}
+
+	/* Hand-drawn underline, drawn rather than stretched.
+
+	   The previous version animated `background-size` on a fixed SVG image,
+	   which scales the whole line horizontally: every part of the stroke is
+	   present from the first frame, just squashed, and the wobble frequency
+	   changes as it expands. That reads as a rubber band, not a pen.
+
+	   `stroke-dashoffset` instead walks a dash the length of the path from one
+	   end to the other, so the line gains length at a constant rate and the
+	   wobble holds its shape — the geometry never distorts. It needs the SVG
+	   inline in the document, which is also why `currentColor` resolves here
+	   (inside a data: URI it would not, and would paint black). */
+	.mailto__line {
+		position: relative;
+		display: inline-block;
+	}
+
+	.scribble {
+		position: absolute;
+		left: 0;
+		/* Offset is per line, because the clearance each one needs is different.
+		   "@gmail.com" has a "g" whose ink runs 11.5px past the bottom of the
+		   line box at the rendered size (116px Clash Display), so its stroke has
+		   to sit below `top: 100%`. "aniketdalvi385" has no descender at all, so
+		   the same offset leaves it floating far under the text. */
+		top: 100%;
+		margin-top: var(--scribble-gap, 0.125em);
+		width: 100%;
+		height: 0.17em;
+		overflow: visible;
+		pointer-events: none;
+	}
+
+	.scribble path {
+		/* 320 comfortably exceeds the path length, so one dash covers the whole
+		   stroke and the offset can hide it completely. Measured against the
+		   rendered length in JS would be exact, but this is a decorative rule —
+		   the overshoot costs nothing and keeps the component script-free. */
+		stroke-dasharray: 320;
+		stroke-dashoffset: 320;
+		/* 0.34s, not 0.5s: with the second line's delay the sequence ran 940ms
+		   end to end, so the pen was still drawing well after the pointer had
+		   settled. Same out-curve as every other interactive transition on the
+		   site — a second near-identical ease is drift, not intent.
+		   `stroke-dashoffset` is an SVG geometry property and cannot composite,
+		   so keeping it short is a cost decision as well as a feel one. */
+		transition: stroke-dashoffset 0.34s var(--ease-out);
+	}
+
+	.mailto:hover .scribble path,
+	.mailto:focus-visible .scribble path {
+		stroke-dashoffset: 0;
+	}
+
+	/* No descenders in "aniketdalvi385", so the stroke tucks up close to the
+	   baseline. The second line keeps the wider gap for its "g". */
+	.mailto__line:first-of-type {
+		--scribble-gap: 0.012em;
+	}
+
+	/* Sequential on the way in: the second line starts as the first finishes, so
+	   the pen reads as travelling down rather than both firing at once. 620ms
+	   total, down from 940ms.
+
+	   Nothing stages the way out. Drawing is the deliberate half and earns the
+	   time; the release is a system response and should snap — a staged
+	   retraction made leaving the element slower than arriving at it. Both
+	   strokes therefore retract together at the base duration. */
+	.mailto:hover .mailto__line:last-of-type .scribble path,
+	.mailto:focus-visible .mailto__line:last-of-type .scribble path {
+		transition-delay: 0.28s;
+	}
+
+	/* Gentler, not zero. `transition: none` alone still flips the stroke in at
+	   full length on hover, which is a harder change than the animation it
+	   replaces. Showing it at rest keeps the underline as information and drops
+	   only the movement. */
+	@media (prefers-reduced-motion: reduce) {
+		.error,
+		.error[data-shown] {
+			transition-property: opacity, visibility;
+			transition-duration: 0.18s, 0s;
+			transition-timing-function: linear, linear;
+			transform: none;
+		}
+		.error {
+			transition-delay: 0s, 0.18s;
+		}
+		.error[data-shown] {
+			transition-delay: 0s, 0s;
+		}
+		.scribble path {
+			stroke-dashoffset: 0;
+			transition: none;
+		}
+		.mailto:hover .mailto__line:last-of-type .scribble path,
+		.mailto:focus-visible .mailto__line:last-of-type .scribble path {
+			transition-delay: 0s;
+		}
+	}
+
+	.contact__grid {
+		margin-top: clamp(48px, 6vw, 96px);
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: clamp(32px, 5vw, 72px);
+		align-items: start;
+	}
+
+	.blurb {
+		margin: 0 0 clamp(24px, 3vw, 36px);
+		font: 400 var(--t-body-lg) / 1.6 "General Sans", sans-serif;
+		max-width: 38ch;
+	}
+
+	.links {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+	/* Coarse pointers only, so desktop keeps its density. The anchors are inline
+	   with no box of their own, so the 12px text is the entire target — roughly
+	   16px tall against a 44px minimum. Padding grows the hit area; the negative
+	   margin and `width: max-content` keep the visible rhythm unchanged and stop
+	   the box spanning the column into its neighbours' space. */
+	@media (pointer: coarse) {
+		.links {
+			gap: 2px;
+		}
+		/* .foot__meta a too — an earlier pass covered .foot__links only, leaving
+		   "BACK TO TOP" at its bare 14px line box. */
+		.links a,
+		.foot__links a,
+		.foot__meta a {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+			width: max-content;
+		}
+		.foot__links {
+			row-gap: 0;
+		}
+	}
+	.links a {
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		transition: opacity 0.2s var(--ease-out);
+	}
+	.links a:hover {
+		opacity: 0.6;
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: clamp(20px, 2.4vw, 30px);
+	}
+	/* A bare `display: flex` outranks the UA stylesheet's `[hidden]{display:none}`,
+	   so the form stayed on screen after submit and the confirmation card simply
+	   appeared below it. Same trap applies to .sent, which is hidden at rest.
+	   `display` still does the hiding; the animation is driven by [data-swap-*]
+	   below, because display cannot transition. */
+	form[hidden],
+	.sent[hidden] {
+		display: none;
+	}
+
+	/* Leaving: quick and flat. A system response should snap. */
+	form {
+		transition: opacity 0.15s var(--ease-out),
+			transform 0.15s var(--ease-out);
+	}
+	form[data-swap-out] {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+
+	/* Arriving: longer, with a rise and a slight scale. Starts at 0.97, never 0 —
+	   nothing in the real world appears from nothing. A successful submit is a
+	   rare event, so it can carry a little more time than pointer feedback. */
+	.sent {
+		transition: opacity 0.3s var(--ease-out),
+			transform 0.3s var(--ease-out);
+	}
+	.sent[data-swap-in] {
+		opacity: 0;
+		transform: translateY(8px) scale(0.97);
+	}
+
+	label {
+		display: flex;
+		flex-direction: column;
+		gap: 9px;
+	}
+
+	.label {
+		font: 500 var(--t-micro) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut);
+	}
+
+	input,
+	textarea {
+		width: 100%;
+		background: transparent;
+		border: 0;
+		border-bottom: 1px solid var(--line);
+		padding: 9px 2px;
+		font: 400 var(--t-body-lg) "General Sans", sans-serif;
+		color: var(--fg);
+		outline: none;
+	}
+	textarea {
+		line-height: 1.5;
+		resize: vertical;
+		min-height: 96px;
+	}
+	input:focus,
+	textarea:focus {
+		border-bottom-color: var(--fg);
+	}
+
+	/* --t-body-lg bottoms out at 15px, and iOS Safari zooms the whole page in on
+	   focus for any field under 16px — with no zoom back out on blur, so the
+	   visitor is left panned into a form they now have to pinch their way out of.
+	   16px is the threshold, not a preference. The padding takes the field from
+	   ~32px to the 44px minimum at the same time. */
+	@media (pointer: coarse) {
+		input,
+		textarea {
+			font-size: 16px;
+			padding: 12px 2px;
+		}
+	}
+
+	/* Not driven by [hidden]: `display: none` cannot transition, so the message
+	   stays in the layer and hides with opacity + visibility. `visibility` rather
+	   than opacity alone keeps it out of the accessibility tree and off the tab
+	   order while hidden. The 0s visibility delay flips immediately on the way
+	   in and waits for the fade on the way out. */
+	/* Not driven by [hidden]: `display: none` cannot transition, so the message
+	   stays in the layer and hides with opacity + visibility. `visibility` rather
+	   than opacity alone keeps it out of the accessibility tree and off the tab
+	   order while hidden.
+
+	   Longhands, not the `transition` shorthand. The minifier compiles
+	   `visibility 0s linear 0s` down to `visibility linear`, dropping both zeros
+	   — the duration then inherits 0.18s from the list and the element stays
+	   `hidden` for the whole fade-in, so the error never appears. Same family of
+	   bug as the `background: transparent` → `background: 0px 0px` trap. */
+	.error {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--err);
+		opacity: 0;
+		visibility: hidden;
+		transform: translateY(-4px);
+		transition-property: opacity, transform, visibility;
+		transition-duration: 0.18s, 0.18s, 0s;
+		transition-timing-function: var(--ease-out),
+			var(--ease-out), linear;
+		/* Leaving: hold visibility until the fade has finished. */
+		transition-delay: 0s, 0s, 0.18s;
+	}
+	.error[data-shown] {
+		opacity: 1;
+		visibility: visible;
+		transform: none;
+		/* Arriving: flip visibility immediately so the fade is seen. */
+		transition-delay: 0s, 0s, 0s;
+	}
+
+	.send {
+		align-self: flex-start;
+		margin-top: 4px;
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		padding: 14px 26px;
+		border: 1px solid var(--fg);
+		border-radius: 999px;
+		background: var(--fg);
+		color: var(--bg);
+		cursor: pointer;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		/* Resting state = the release. A plain ease-out here means the button
+		   settles back without wobbling; the overshoot spring below applies only
+		   on the way in. Symmetric spring timing makes the release feel loose. */
+		transition: transform 0.15s ease-out, opacity 0.2s ease;
+	}
+	.send:hover {
+		opacity: 0.88;
+		transform: translateY(-2px);
+		transition: transform 0.25s var(--ease-spring),
+			opacity 0.2s ease;
+	}
+	.send[disabled] {
+		opacity: 0.5;
+		cursor: default;
+		transform: none;
+	}
+
+	.sent {
+		border: 1px solid var(--line);
+		border-radius: 2px;
+		padding: clamp(28px, 4vw, 44px);
+		background: var(--faint);
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	/* The shared .eyebrow margin is sized for section heads and left the card
+	   reading as a mostly-empty slab. The card sets its own rhythm. */
+	.sent .eyebrow {
+		margin-bottom: 14px;
+	}
+
+	.sent__head {
+		margin: 0 0 26px;
+		font: 600 var(--t-title-sm) / 1.2 "Clash Display", sans-serif;
+		letter-spacing: -0.02em;
+		max-width: 22ch;
+		text-wrap: balance;
+	}
+
+	.again {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 11px 20px;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--fg);
+		cursor: pointer;
+		font: 500 var(--t-micro) "JetBrains Mono", monospace;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		transition: background 0.2s var(--ease-out);
+	}
+	.again:hover {
+		background: var(--card);
+	}
+	/* ~34px at the base padding, against the 44px minimum. */
+	@media (pointer: coarse) {
+		.again {
+			min-height: 44px;
+		}
+	}
+
+	.foot {
+		margin-top: clamp(44px, 6vw, 90px);
+		padding-top: 26px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 24px;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.foot__links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: clamp(16px, 2vw, 30px);
+	}
+	.foot__links a {
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--mut);
+		transition: color 0.2s var(--ease-out);
+	}
+	.foot__links a:hover {
+		color: var(--fg);
+	}
+
+	.foot__meta {
+		display: flex;
+		gap: 24px;
+		align-items: center;
+		font: 400 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+	}
+	.foot__meta a {
+		font-weight: 500;
+		transition: color 0.2s var(--ease-out);
+	}
+	.foot__meta a:hover {
+		color: var(--fg);
+	}
+</style>
+
+<script>
+	const form = document.getElementById("contactForm") as HTMLFormElement | null;
+	const sent = document.getElementById("formSent");
+	const errorEl = document.getElementById("formError");
+	const again = document.getElementById("sendAgain");
+
+	const fields = ["name", "email", "topic", "message"] as const;
+	const fieldEl = (n: string) =>
+		form?.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${n}"]`) ??
+		null;
+
+	// Caps mirror the maxlength attributes. Checked again here because maxlength
+	// only limits typing — a paste via script, or an autofill, can exceed it.
+	const LIMITS: Record<string, number> = {
+		name: 120,
+		email: 254,
+		topic: 160,
+		message: 4000,
+	};
+
+	const showError = (msg: string, focusField?: string) => {
+		if (errorEl) {
+			errorEl.textContent = msg;
+			errorEl.setAttribute("data-shown", "");
+		}
+		// Mark the offending field and send focus there. Announcing an error while
+		// focus sits on the submit button leaves a keyboard or screen-reader user
+		// to hunt for which input is wrong.
+		if (focusField) {
+			const el = fieldEl(focusField);
+			if (el) {
+				el.setAttribute("aria-invalid", "true");
+				el.setAttribute("aria-describedby", "formError");
+				el.focus();
+			}
+		}
+	};
+
+	const clearError = () => {
+		if (errorEl) {
+			errorEl.removeAttribute("data-shown");
+			// Text is left in place: clearing it mid-fade makes the message vanish
+			// before the transition finishes. It is inert while visibility is
+			// hidden, and every showError() overwrites it.
+		}
+		fields.forEach((n) => {
+			const el = fieldEl(n);
+			el?.removeAttribute("aria-invalid");
+			el?.removeAttribute("aria-describedby");
+		});
+	};
+
+	// Clear as soon as the visitor starts fixing the problem. Without this the
+	// message sits there while they correct the field and only updates on the
+	// next submit, which reads as the form ignoring them.
+	fields.forEach((n) => {
+		fieldEl(n)?.addEventListener("input", () => {
+			if (!errorEl?.hidden) clearError();
+		});
+	});
+
+	const showSent = () => {
+		const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if (reduce || !form || !sent) {
+			form?.setAttribute("hidden", "");
+			sent?.removeAttribute("hidden");
+			return;
+		}
+
+		// Fade the form out, then swap and let the card rise in. The card is
+		// un-hidden in its entry state first so the browser has a frame to paint
+		// it before the attribute that animates it is removed — without the
+		// double rAF the transition is skipped and the card simply appears.
+		form.setAttribute("data-swap-out", "");
+		window.setTimeout(() => {
+			form.setAttribute("hidden", "");
+			sent.setAttribute("data-swap-in", "");
+			sent.removeAttribute("hidden");
+			const reveal = () => sent.removeAttribute("data-swap-in");
+			requestAnimationFrame(() => requestAnimationFrame(reveal));
+			// Fail-safe: rAF is throttled to zero in a background tab, and the card
+			// is at opacity 0 until the attribute is removed. Without this a submit
+			// completed on a hidden tab would leave the confirmation invisible
+			// forever. Same class of guard as the preloader's timeout.
+			window.setTimeout(reveal, 120);
+		}, 150);
+	};
+
+	form?.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		clearError();
+
+		const data = new FormData(form);
+		const name = String(data.get("name") ?? "").trim();
+		const email = String(data.get("email") ?? "").trim();
+		const topic = String(data.get("topic") ?? "").trim();
+		const message = String(data.get("message") ?? "").trim();
+
+		// Checked in field order, presence and format together per field. Running
+		// every presence check first hides a malformed email behind a later empty
+		// field: the visitor fixes the message, resubmits, and only then learns
+		// the address was wrong too. One field's problems are reported at once.
+		if (!name) return showError("Please add your name.", "name");
+
+		if (!email) return showError("Please add your email address.", "email");
+		// Deliberately permissive. Strict RFC-5322 matching rejects addresses that
+		// are valid in practice, and the endpoint validates server-side anyway —
+		// this only catches obvious typos before a round trip.
+		if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+			return showError("Please enter a valid email address.", "email");
+		}
+
+		if (!message) return showError("Please add a message.", "message");
+
+		const tooLong = ([["name", name], ["email", email], ["topic", topic], ["message", message]] as const).find(
+			([k, v]) => v.length > LIMITS[k]
+		);
+		if (tooLong) {
+			const [k] = tooLong;
+			return showError(
+				`That ${k} is too long — ${LIMITS[k]} characters maximum.`,
+				k
+			);
+		}
+
+		const endpoint = form.dataset.endpoint;
+		const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+		// With an endpoint configured, POST it. Without one, fall back to opening
+		// a pre-filled mail draft so the form is never a dead end.
+		if (endpoint) {
+			submitBtn?.setAttribute("disabled", "");
+			const label = submitBtn?.textContent ?? "";
+			if (submitBtn) submitBtn.textContent = "Sending…";
+			try {
+				const res = await fetch(endpoint, {
+					method: "POST",
+					headers: { Accept: "application/json" },
+					body: data,
+				});
+				if (!res.ok) throw new Error(String(res.status));
+				showSent();
+			} catch {
+				showError("Something went wrong. Please email me directly.");
+			} finally {
+				// `finally`, not the catch branch alone: any early return or throw
+				// after the disable would otherwise leave the button dead with no
+				// way to retry.
+				submitBtn?.removeAttribute("disabled");
+				if (submitBtn && label) submitBtn.textContent = label;
+			}
+			return;
+		}
+
+		const subject = encodeURIComponent(topic || `Message from ${name}`);
+		const body = encodeURIComponent(`${message}\n\n— ${name} (${email})`);
+		window.location.href = `mailto:aniketdalvi385@gmail.com?subject=${subject}&body=${body}`;
+		showSent();
+	});
+
+	again?.addEventListener("click", () => {
+		form?.reset();
+		clearError();
+		form?.removeAttribute("hidden");
+		sent?.setAttribute("hidden", "");
+		// Clear the swap attributes or a second submit animates from a stale state.
+		form?.removeAttribute("data-swap-out");
+		sent?.removeAttribute("data-swap-in");
+		form?.querySelector<HTMLButtonElement>('button[type="submit"]')?.removeAttribute("disabled");
+		// The card that held focus is now hidden, so focus would fall back to
+		// <body> and a keyboard user would restart from the top of the page.
+		fieldEl("name")?.focus();
+	});
+</script>

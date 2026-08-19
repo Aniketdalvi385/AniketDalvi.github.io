@@ -1,0 +1,38 @@
+---
+// Inlined blocking script: stamps data-theme and the preloader decision before
+// first paint, so there is no flash of the wrong palette and no flash of the
+// loader on repeat visits. Must stay dependency-free and synchronous.
+---
+
+<script is:inline>
+	(function () {
+		var root = document.documentElement;
+
+		try {
+			var saved = localStorage.getItem("ad_theme");
+			if (saved === "dark" || saved === "light") {
+				root.setAttribute("data-theme", saved);
+			}
+		} catch (e) {
+			/* private mode — fall back to prefers-color-scheme */
+		}
+
+		// Decide the preloader here rather than in the deferred module script:
+		// the loader markup paints immediately, so deciding later flashes it for
+		// a frame on every repeat visit.
+		try {
+			var reduce =
+				window.matchMedia &&
+				window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+			var seen = !!sessionStorage.getItem("ad_loaded");
+			if (!seen && !reduce) {
+				root.setAttribute("data-preload", "");
+				// Lock scrolling from the first frame; Preloader.astro releases it.
+				root.style.overflow = "hidden";
+				sessionStorage.setItem("ad_loaded", "1");
+			}
+		} catch (e) {
+			/* private mode — skip the loader rather than risk showing it twice */
+		}
+	})();
+</script>

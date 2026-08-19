@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I Built an AI Git Tool, Then Took Most of the AI Out — Aniket Dalvi</title>
+<meta name="description" content="How a 41% accuracy score taught me that the language model was the weakest part of my LLM-powered tool.">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=clash-display@400,500,600,700&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  :root{
+    --bg:#fbfaf8; --fg:#0f0e0c; --mut:#7c766c; --line:rgba(0,0,0,.12);
+    --card:#f1efe9; --faint:rgba(0,0,0,.04); --accent:#3fae6b;
+    --code-bg:#f1efe9; --sel:#0f0e0c; --sel-fg:#fbfaf8;
+    --maxw:1280px; --col:64ch;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0c0b0a; --fg:#f4f2ec; --mut:#8b857a; --line:rgba(255,255,255,.14);
+      --card:#16140f; --faint:rgba(255,255,255,.045); --accent:#4cc47c;
+      --code-bg:#16140f; --sel:#f4f2ec; --sel-fg:#0c0b0a;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0c0b0a; --fg:#f4f2ec; --mut:#8b857a; --line:rgba(255,255,255,.14);
+    --card:#16140f; --faint:rgba(255,255,255,.045); --accent:#4cc47c;
+    --code-bg:#16140f; --sel:#f4f2ec; --sel-fg:#0c0b0a;
+  }
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:"General Sans",system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+    min-height:100vh; transition:background .5s ease,color .5s ease; overflow-x:hidden;
+  }
+  ::selection{background:var(--sel); color:var(--sel-fg)}
+  a{color:inherit; text-decoration:none}
+
+  .rails{position:fixed; inset:0; z-index:2; pointer-events:none}
+  .rails::before,.rails::after{content:""; position:absolute; top:0; bottom:0; width:1px; background:var(--line)}
+  .rails::before{left:clamp(16px,3vw,44px)} .rails::after{right:clamp(16px,3vw,44px)}
+  @media (max-width:720px){ .rails{display:none} }
+
+  #progress{position:fixed; top:0; left:0; height:2px; width:0; background:var(--fg); z-index:60; transition:width .08s linear}
+
+  header.nav{position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center;
+    justify-content:space-between; padding:14px clamp(40px,7vw,110px);
+    background:var(--bg); border-bottom:1px solid var(--line); transition:background .5s ease}
+  .brand{display:flex; align-items:center; gap:12px}
+  .mark{width:26px; height:26px; border:1px solid var(--fg); display:flex; align-items:center; justify-content:center;
+    font:600 11px "JetBrains Mono",monospace}
+  .brand .nm{font:500 14px "General Sans",sans-serif; letter-spacing:-.01em}
+  .nav-right{display:flex; align-items:center; gap:clamp(14px,2vw,26px)}
+  .nav-right a{font:500 11px "JetBrains Mono",monospace; letter-spacing:.06em; color:var(--mut); transition:color .2s}
+  .nav-right a:hover{color:var(--fg)}
+  .toggle{display:inline-flex; align-items:center; gap:8px; padding:7px 13px; border:1px solid var(--line);
+    border-radius:999px; background:transparent; color:var(--fg); cursor:pointer;
+    font:500 10px "JetBrains Mono",monospace; letter-spacing:.08em; text-transform:uppercase; transition:background .2s}
+  .toggle:hover{background:var(--card)}
+  .toggle .dot{width:7px; height:7px; border-radius:50%; background:var(--fg)}
+  @media (max-width:640px){ .nav-hide{display:none} }
+
+  main{max-width:var(--maxw); margin:0 auto; padding:0 clamp(40px,7vw,110px)}
+  .wrap{max-width:var(--col); margin:0 auto}
+
+  .masthead{padding:calc(64px + 10vh) 0 clamp(36px,5vw,60px); border-bottom:1px solid var(--line)}
+  .masthead .wrap{max-width:22ch}
+  .eyebrow{font:500 11px "JetBrains Mono",monospace; letter-spacing:.16em; color:var(--mut); text-transform:uppercase}
+  .masthead h1{margin:clamp(20px,3vw,30px) 0 0; font:600 clamp(38px,6vw,82px)/1.0 "Clash Display",sans-serif;
+    letter-spacing:-.035em; text-wrap:balance; max-width:none}
+  .masthead .wrap{max-width:var(--col)}
+  .subtitle{margin:clamp(16px,2vw,22px) 0 0; font:400 clamp(16px,1.7vw,21px)/1.45 "General Sans",sans-serif;
+    color:var(--mut); font-style:italic; max-width:52ch; text-wrap:balance}
+  .byline{margin:clamp(24px,3vw,36px) 0 0; display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center;
+    font:500 12px "JetBrains Mono",monospace; color:var(--mut)}
+  .byline .who{color:var(--fg)}
+
+  article{padding:clamp(30px,4vw,56px) 0 clamp(40px,6vw,80px)}
+  .lede p:first-child{font:400 clamp(17px,1.55vw,21px)/1.6 "General Sans",sans-serif}
+  section{padding:clamp(20px,2.6vw,34px) 0}
+  h2{margin:clamp(16px,2vw,26px) 0 clamp(14px,1.6vw,20px);
+    font:600 clamp(22px,2.6vw,32px)/1.1 "Clash Display",sans-serif; letter-spacing:-.025em; text-wrap:balance}
+  p{margin:0 0 clamp(14px,1.5vw,20px); font:400 clamp(16px,1.2vw,18px)/1.7 "General Sans",sans-serif}
+  strong{font-weight:600} em{font-style:italic}
+  a.inline{color:var(--accent); border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+  a.inline:hover{border-bottom-color:var(--accent)}
+  code{font:500 .86em "JetBrains Mono",monospace; background:var(--code-bg); padding:.12em .4em; border-radius:3px; border:1px solid var(--line)}
+
+  /* the big pull-number */
+  .bignum{margin:clamp(28px,4vw,52px) 0; text-align:center}
+  .bignum .n{font:600 clamp(72px,14vw,180px)/0.9 "Clash Display",sans-serif; letter-spacing:-.05em; color:var(--fg)}
+
+  /* aside / handoff notes */
+  .aside{margin:clamp(20px,2.5vw,30px) 0; padding:clamp(16px,2vw,22px) clamp(18px,2vw,24px);
+    border-left:2px solid var(--accent); background:var(--faint); border-radius:0 2px 2px 0}
+  .aside p{margin:0; font:400 clamp(14px,1.05vw,15.5px)/1.6 "General Sans",sans-serif; color:var(--mut); font-style:italic}
+  .aside a{color:var(--accent); font-style:normal}
+
+  ul{margin:0 0 clamp(16px,1.8vw,22px); padding-left:0; list-style:none; display:flex; flex-direction:column; gap:12px}
+  li{display:grid; grid-template-columns:20px 1fr; gap:10px; font:400 clamp(16px,1.15vw,17px)/1.6 "General Sans",sans-serif}
+  li .b{font:500 12px "JetBrains Mono",monospace; color:var(--accent); padding-top:3px}
+
+  .companion{padding:clamp(40px,6vw,80px) 0; border-top:1px solid var(--line)}
+  .companion .eyebrow{margin-bottom:clamp(20px,2.5vw,30px)}
+  .comp-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:clamp(14px,2vw,20px)}
+  .comp-card{display:block; padding:clamp(20px,2.4vw,28px); border:1px solid var(--line); border-radius:2px;
+    background:var(--bg); transition:background .3s ease,box-shadow .3s ease}
+  .comp-card:hover{background:var(--faint); box-shadow:inset 0 4px 16px -6px rgba(0,0,0,.28)}
+  .comp-card .k{font:500 10px "JetBrains Mono",monospace; letter-spacing:.14em; color:var(--mut); text-transform:uppercase}
+  .comp-card .t{margin:12px 0 8px; font:600 clamp(17px,1.6vw,20px) "Clash Display",sans-serif; letter-spacing:-.02em}
+  .comp-card .d{font:400 13.5px/1.5 "General Sans",sans-serif; color:var(--mut)}
+  .comp-card .go{margin-top:14px; font:500 11px "JetBrains Mono",monospace; color:var(--accent)}
+
+  footer.foot{padding:clamp(30px,4vw,50px) 0; border-top:1px solid var(--line); display:flex; flex-wrap:wrap;
+    gap:18px; align-items:center; justify-content:space-between; font:400 11px "JetBrains Mono",monospace; color:var(--mut)}
+  footer.foot a{color:var(--mut)} footer.foot a:hover{color:var(--fg)}
+
+  [data-reveal]{opacity:0; transform:translateY(22px); transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+  [data-reveal].in{opacity:1; transform:none}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} [data-reveal]{opacity:1; transform:none; transition:none} }
+  :focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div class="rails" aria-hidden="true"></div>
+
+<header class="nav">
+  <a class="brand" href="../../index.html" aria-label="Aniket Dalvi home">
+    <span class="mark">AD</span><span class="nm nav-hide">Aniket Dalvi</span>
+  </a>
+  <nav class="nav-right">
+    <a href="paper.html">RESEARCH</a>
+    <a href="casestudy.html">CASE STUDY</a>
+    <a class="nav-hide" href="#top">BLOG</a>
+    <button class="toggle" id="themeToggle" aria-label="Toggle color theme">
+      <span class="dot"></span><span id="themeLabel">Light</span>
+    </button>
+  </nav>
+</header>
+
+<main id="top">
+
+  <div class="masthead">
+    <div class="wrap" data-reveal>
+      <div class="eyebrow">Blog &nbsp;·&nbsp; Building With Local LLMs &nbsp;·&nbsp; 2026</div>
+      <h1>I Built an AI Git Tool. Then I Measured the AI and Took Most of It Out.</h1>
+      <div class="subtitle">How a 41% accuracy score taught me that the language model was the weakest part of my LLM-powered tool.</div>
+      <div class="byline"><span class="who">Aniket Dalvi</span><span>~6 min read</span></div>
+    </div>
+  </div>
+
+  <article>
+  <div class="wrap">
+
+    <section class="lede" data-reveal>
+      <p>Everyone who’s used Git for a while has a horror story. A colleague runs <code>git reset --hard</code> on the wrong directory and watches an afternoon of work vanish. Someone force-pushes over a teammate’s commit. A junior dev is <em>certain</em> they committed something, and now it’s nowhere. Git’s sharpest edges come out exactly when people are stressed and moving fast, which is to say, exactly when they’ll cut themselves.</p>
+      <p>So I built a tool for that: <a class="inline" href="https://github.com/Aniketdalvi385/gitrust" target="_blank" rel="noopener">GiTrust</a>, a command-line assistant that lets you talk to Git in plain English (“push the login changes,” “undo my last commit but keep the files”) and wraps the dangerous operations in guardrails. Two rules made it interesting rather than routine. It had to run <strong>locally</strong>, because a Git tool reads your code and plenty of people can’t ship their diffs to a hosted API. And it had to run on a <strong>normal laptop</strong>: mine, an 8&nbsp;GB MacBook.</p>
+      <p>That second constraint turned out to be the whole story.</p>
+    </section>
+
+    <section data-reveal>
+      <h2>It worked. For exactly one way of saying each thing.</h2>
+      <p>The first version did what the demo promised. “Commit everything” worked. “Push my changes” worked. Then I started saying things slightly differently, the way a real person would, and it fell apart.</p>
+      <p>“Save my changes” got read as <em>stage the files but don’t commit them.</em> “Push all the docs changes” pushed everything, docs and code alike. “Combine the last three commits” tried to undo a single commit. Same intent, different words, wrong answer. The tool had memorized the exact phrasings I’d hard-coded and was helpless the moment anyone strayed from them.</p>
+      <p>The tempting fix was obvious: add more phrasings, more rules, more examples in the prompt. I started down that road and stopped, because it solves the wrong problem. <strong>Every rule you add just moves the cliff.</strong> It makes the tool work for the words <em>you</em> anticipated and leaves it helpless for the next person who phrases it their own way. I’d be forcing users to be rigid to accommodate a tool that couldn’t adapt, which is exactly backwards.</p>
+    </section>
+
+    <section data-reveal>
+      <h2>So I stopped guessing and measured.</h2>
+      <p>Instead of adding a twelfth rule, I built an evaluation harness and pointed it at the local model. The number came back:</p>
+      <div class="bignum" data-reveal><div class="n">41%</div></div>
+      <p>On phrasings that weren’t trivial exact matches, my supposedly-intelligent core was right <em>41% of the time.</em> Sobering, but not the part that changed my mind. The part that changed my mind was in the safety cases: the model took “throw away my changes” and cheerfully routed it to a destructive reset. Not “are you sure?”, just <em>do the dangerous thing.</em> A tool I’d built to protect people from Git’s sharp edges was, at its core, occasionally handing them the knife.</p>
+      <p>Then I tried the alternative I’d been quietly hoping would save me: instead of asking the model to <em>reason</em> about the request, embed it and match it to the nearest known example, pure similarity. Same model, no extra memory. It scored <strong>64%</strong> and ran about <strong>35× faster.</strong> A real win.</p>
+      <p>Except it had its own dangerous failure: it routed “undo the last three commits” to <em>squash</em>, which would silently rewrite three commits into one. Neither engine was safe on its own. One was slow and unreliable; the other was fast and unreliable in a different, scarier direction.</p>
+      <div class="aside"><p>The full methodology, the numbers by category, and why neither engine can be trusted alone are in the <a href="paper.html">research paper</a>.</p></div>
+    </section>
+
+    <section data-reveal>
+      <h2>An aside: the machine lied to me three times.</h2>
+      <p>The part I’m least proud of and find most useful to share: before I trusted any of those numbers, I got fooled by fake ones. Three separate times, a benchmarking bug produced a result that looked like a <em>finding</em> and was actually a misconfiguration, an empty response scored as 0%, a truncated prompt that tanked every score. On constrained hardware, benchmarking bugs don’t show up as errors. They show up as <em>interesting results.</em> The only thing that saved me was keeping one number I already trusted in every run and disbelieving anything that moved it.</p>
+      <div class="aside"><p>I wrote up all three bugs as a cautionary tale in the paper’s <a href="paper.html">Threats to Validity</a> section, because the honest autopsy is worth more than the clean numbers.</p></div>
+    </section>
+
+    <section data-reveal>
+      <h2>The fix wasn’t a smarter model. It was less model.</h2>
+      <p>So I went looking for a better local model, and the 8&nbsp;GB laptop delivered its final verdict. The realistic next step up, a 4B model, needs enough context to hold my tool’s instructions. At that context, on that machine, it didn’t just run slowly. <strong>It crashed my laptop.</strong> The upgrade I was counting on wasn’t slow or expensive; it was <em>unavailable.</em></p>
+      <p>That’s when it clicked. If the model can’t get smarter, the intelligence has to live somewhere else. So I inverted the design: cheap, reliable, deterministic layers up front, with the model demoted to a fallback for genuine novelty, and every destructive decision owned by testable code the model never touches. The result was <em>more</em> robust to how people actually talk, dramatically faster, and safe by construction on exactly the operations where I’d measured the model couldn’t be trusted.</p>
+      <div class="aside"><p>The reusable version of that architecture, tiering, routing without deciding, and abstaining rather than guessing, is written up as a pattern in the <a href="casestudy.html">case study</a>.</p></div>
+    </section>
+
+    <section data-reveal>
+      <h2>What I actually learned</h2>
+      <p>I set out to build a tool whose intelligence was a language model. I finished having proven, with numbers, that the language model was the weakest component in it, and that this was the most useful thing the project produced.</p>
+      <p>The lesson isn’t “local models are bad.” Mine does real work, in the two places it’s genuinely the right tool. The lesson is that in a moment when “just add an LLM” is the reflexive answer to everything, whether the model is actually good at <em>your</em> job, on <em>your</em> hardware, is a question with an answer, and you only get it by going and measuring. When the answer comes back “not good enough,” the move isn’t always to wait for a better model. Sometimes it’s to build the intelligence <em>around</em> the model instead.</p>
+      <p>On a small machine especially, the scaffolding might be the product.</p>
+    </section>
+
+  </div>
+  </article>
+
+  <div class="wrap">
+    <div class="companion" data-reveal>
+      <div class="eyebrow">/ Go deeper</div>
+      <div class="comp-grid">
+        <a class="comp-card" href="casestudy.html">
+          <div class="k">Case study</div>
+          <div class="t">Deterministic-First</div>
+          <div class="d">The architecture as a reusable pattern you can apply to your own tool.</div>
+          <div class="go">Read the pattern →</div>
+        </a>
+        <a class="comp-card" href="paper.html">
+          <div class="k">Research paper</div>
+          <div class="t">When the LLM Is the Weak Link</div>
+          <div class="d">The full measurement, the numbers by category, the model-swap study, and the three benchmarking bugs in detail.</div>
+          <div class="go">Read the proof →</div>
+        </a>
+        <a class="comp-card" href="https://github.com/Aniketdalvi385/gitrust" target="_blank" rel="noopener">
+          <div class="k">Source</div>
+          <div class="t">GiTrust on GitHub</div>
+          <div class="d">The tool itself, Rust, open source.</div>
+          <div class="go">View the repo ↗</div>
+        </a>
+      </div>
+    </div>
+    <footer class="foot">
+      <span>© 2026 Aniket Dalvi</span>
+      <a href="#top">Back to top ↑</a>
+    </footer>
+  </div>
+
+</main>
+
+<script>
+(function(){
+  var root=document.documentElement, tog=document.getElementById('themeToggle'), lbl=document.getElementById('themeLabel');
+  function sysDark(){return window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;}
+  try{var saved=localStorage.getItem('ad_theme'); if(saved) root.setAttribute('data-theme',saved);}catch(e){}
+  function cur(){var a=root.getAttribute('data-theme'); if(a) return a; return sysDark()?'dark':'light';}
+  function sync(){lbl.textContent=cur()==='dark'?'Dark':'Light';}
+  sync();
+  tog.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark'; root.setAttribute('data-theme',n); try{localStorage.setItem('ad_theme',n);}catch(e){} sync();});
+  var pb=document.getElementById('progress');
+  function prog(){var h=document.documentElement.scrollHeight-window.innerHeight; pb.style.width=(h>0?(window.scrollY/h*100):0)+'%';}
+  window.addEventListener('scroll',prog,{passive:true}); prog();
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduce&&'IntersectionObserver'in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});},{threshold:0.1,rootMargin:'0px 0px -6% 0px'});
+    document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+  } else { document.querySelectorAll('[data-reveal]').forEach(function(el){el.classList.add('in');}); }
+})();
+</script>
+</body>
+</html>

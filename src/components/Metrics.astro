@@ -1,0 +1,217 @@
+---
+import { STATS } from "../data/site";
+---
+
+<section id="metrics" class="metrics">
+	<div class="panel" data-panel>
+		{
+			STATS.map((s) => (
+				<div class="cell" data-cell>
+					<div class="cell__num" data-cellnum>
+						{s.v}
+					</div>
+					<div class="cell__cap" data-cellcap>
+						{s.k}
+					</div>
+				</div>
+			))
+		}
+	</div>
+</section>
+
+<style>
+	.metrics {
+		padding: clamp(56px, 7vw, 104px) var(--gutter) 0;
+	}
+
+	.panel {
+		display: grid;
+		/* min() keeps the track from exceeding the viewport on narrow screens —
+		   a bare clamp() floor of 150px overflows once gutters are subtracted. */
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, clamp(150px, 20vw, 260px)), 1fr));
+		background: var(--panel);
+		color: var(--panelfg);
+		/* No border: it was the same colour as the fill, so it drew nothing and
+		   only widened the box. The slab separates by fill and cast shadow. */
+		border-radius: 2px;
+		overflow: hidden;
+		box-shadow: 0 30px 70px -34px var(--sh-lift);
+		transition: background 0.5s ease, color 0.5s ease;
+	}
+
+	.cell {
+		position: relative;
+		overflow: hidden;
+		/* Tall cells are the point: the figure and its caption sit at opposite
+		   ends of a deliberately open slab.
+		   Capped at 340px rather than 500px. At 500 the cell held 122px of content
+		   — 62% of it was empty — and a squint test showed each figure floating
+		   above a void with its caption stranded at the far edge, so the number and
+		   its own label stopped reading as a pair. This keeps the open-slab
+		   character (still ~180px of air) without breaking that association. */
+		min-height: clamp(280px, 24vw, 340px);
+		padding: clamp(22px, 2.4vw, 36px);
+		border-left: 1px solid var(--panelline);
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+	}
+	.cell:first-child {
+		border-left: 0;
+	}
+
+	/* Longhands, not the `font:` shorthand — the shorthand resets
+	   font-variant-numeric, and minifiers may reorder it after this rule. */
+	.cell__num {
+		font-family: "Clash Display", sans-serif;
+		font-weight: 600;
+		font-size: var(--t-display-md);
+		line-height: 0.88;
+		letter-spacing: -0.045em;
+		/* Stat figures sit in a row of four; fixed-width digits keep the optical
+		   rhythm even when values differ in width (96% vs 1,500+). */
+		font-variant-numeric: tabular-nums;
+	}
+
+	.cell__cap {
+		font: 400 var(--t-body-lg) / 1.35 "General Sans", sans-serif;
+		opacity: 0.86;
+		max-width: 22ch;
+	}
+
+	/* 740-900px: all four cells sit on one row (the 2x2 grid stops at 739), but
+	   the cells are only ~112-160px wide while --t-display-md still floors at
+	   46px. "5,000+" measured 130px into a 112px box at 768 and was visibly
+	   clipped at the cell edge. Scale the figure to the cell through this band —
+	   the same fix the phone breakpoint got, for the range between them. */
+	@media (min-width: 740px) and (max-width: 900px) {
+		.cell__num {
+			font-size: clamp(26px, 4.4vw, 46px);
+		}
+	}
+
+	/* Curtain reveal — JS adds .panel-in to release the clip. Cells stay visible
+	   when JS or IntersectionObserver is unavailable. */
+	.panel[data-armed] .cell {
+		clip-path: inset(0 0 100% 0);
+		transition: clip-path 0.9s var(--ease-out);
+	}
+	.panel[data-armed] .cell__num,
+	.panel[data-armed] .cell__cap {
+		opacity: 0;
+		transform: translateY(38px);
+		transition: opacity 0.9s var(--ease-out),
+			transform 0.9s var(--ease-out);
+	}
+
+	.panel[data-armed].panel-in .cell {
+		clip-path: inset(0 0 0% 0);
+	}
+	.panel[data-armed].panel-in .cell__num,
+	.panel[data-armed].panel-in .cell__cap {
+		opacity: 1;
+		transform: none;
+	}
+
+	/* Stagger: each cell trails the one before it at 70ms — the same step the
+	   site's [data-reveal-group] uses, and inside the 30-80ms band where a
+	   stagger still reads as one entrance. At the previous 100ms the fourth cell
+	   only started 300ms in and the panel finished at ~1.2s, which read as the
+	   cells arriving separately rather than as a group. */
+	.panel[data-armed] .cell:nth-child(1) { transition-delay: 0s; }
+	.panel[data-armed] .cell:nth-child(2) { transition-delay: 0.07s; }
+	.panel[data-armed] .cell:nth-child(3) { transition-delay: 0.14s; }
+	.panel[data-armed] .cell:nth-child(4) { transition-delay: 0.21s; }
+	.panel[data-armed] .cell:nth-child(1) :is(.cell__num, .cell__cap) { transition-delay: 0.09s; }
+	.panel[data-armed] .cell:nth-child(2) :is(.cell__num, .cell__cap) { transition-delay: 0.16s; }
+	.panel[data-armed] .cell:nth-child(3) :is(.cell__num, .cell__cap) { transition-delay: 0.23s; }
+	.panel[data-armed] .cell:nth-child(4) :is(.cell__num, .cell__cap) { transition-delay: 0.3s; }
+
+	@media (prefers-reduced-motion: reduce) {
+		.panel[data-armed] .cell,
+		.panel[data-armed] .cell__num,
+		.panel[data-armed] .cell__cap {
+			clip-path: none;
+			opacity: 1;
+			transform: none;
+			transition: none;
+		}
+	}
+
+	/* At phone widths the auto-fit track floor resolves to two columns, not one —
+	   the cells never stack, so this block's assumption of a single column was
+	   wrong.
+	   It stripped `border-left` from every cell and added `border-top`, which
+	   removed the vertical rule *between* the two columns and left the 2x2 grid
+	   with only horizontal rules. Cells 2 and 4 lost their left edge entirely.
+	   The grid is explicit here instead, and the borders follow from it: a left
+	   rule on the second column, a top rule on the second row. */
+	/* 739, not 700: between 701 and 739 the auto-fit track fits three cells on the
+	   first row and orphans the fourth on a second, where its `border-left`
+	   divides nothing. The explicit 2x2 covers that band too, and 740 is the
+	   first width at which all four sit on one row. */
+	@media (max-width: 739px) {
+		.panel {
+			grid-template-columns: 1fr 1fr;
+		}
+		.cell {
+			/* 280px held ~101px of content, so 48% of every cell was empty and the
+			   figure sat more than three of its own heights from its caption — the
+			   pair stopped reading as one unit. The desktop slab has room for that
+			   openness; a 156px-wide phone cell does not. */
+			min-height: 0;
+			padding: 20px 16px;
+			/* The figure and caption now sit together rather than at opposite ends
+			   of a tall box. */
+			justify-content: flex-start;
+			gap: 10px;
+			border-left: 0;
+			border-top: 0;
+		}
+		/* Second column. */
+		.cell:nth-child(2n) {
+			border-left: 1px solid var(--panelline);
+		}
+		/* Second row. */
+		.cell:nth-child(n + 3) {
+			border-top: 1px solid var(--panelline);
+		}
+
+		/* --t-display-md floors at 46px, which overflowed the longest value:
+		   "5,000+" measured 130px against a 112px content box at 360px, so the
+		   figure was clipped at the panel edge. Sized to the cell here instead. */
+		.cell__num {
+			font-size: clamp(30px, 9vw, 46px);
+			line-height: 1;
+		}
+
+		.cell__cap {
+			font-size: 13px;
+			line-height: 1.4;
+		}
+	}
+</style>
+
+<script>
+	// Arm the curtain only when we can actually observe it, so no-JS and
+	// unsupported browsers render the panel fully visible.
+	const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+	const panels = document.querySelectorAll<HTMLElement>("[data-panel]");
+
+	if (!reduce && "IntersectionObserver" in window) {
+		panels.forEach((p) => p.setAttribute("data-armed", ""));
+
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((en) => {
+					if (en.isIntersecting) {
+						en.target.classList.add("panel-in");
+						io.unobserve(en.target);
+					}
+				});
+			},
+			{ threshold: 0.2, rootMargin: "0px 0px -10% 0px" }
+		);
+		panels.forEach((p) => io.observe(p));
+	}
+</script>

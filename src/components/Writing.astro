@@ -1,0 +1,180 @@
+---
+import { getPosts } from "../data/writing";
+
+// The homepage teaser lists the newest three from the writing collection.
+const teaser = (await getPosts()).slice(0, 3);
+---
+
+<section id="writing" class="writing">
+	<div class="writing__head" data-reveal>
+		<h2>WRITING</h2>
+		<a class="note" href="/writing">ALL NOTES ↗</a>
+	</div>
+
+	<div class="writing__list" data-reveal-group>
+		{
+			teaser.map((w) => (
+				<a class="row" href={w.href}>
+					<span class="row__date">{w.date}</span>
+					<span class="row__body">
+						<span class="row__title">{w.listTitle}</span>
+						{w.excerpt && <span class="row__excerpt">{w.excerpt}</span>}
+					</span>
+					<span class="row__tag">{w.tag}</span>
+				</a>
+			))
+		}
+	</div>
+</section>
+
+<style>
+	.writing {
+		padding: clamp(72px, 8vw, 128px) var(--gutter);
+	}
+
+	.writing__head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		padding-bottom: clamp(28px, 3vw, 42px);
+	}
+
+	h2 {
+		margin: 0;
+		font: 600 var(--t-label) "JetBrains Mono", monospace;
+		letter-spacing: 0.04em;
+	}
+
+	.note {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+		transition: color 0.2s var(--ease-out);
+	}
+	.note:hover {
+		color: var(--fg);
+	}
+	/* 14px tall as bare inline text. */
+	@media (pointer: coarse) {
+		.note {
+			display: inline-flex;
+			align-items: center;
+			min-height: 44px;
+		}
+	}
+
+	/* Unruled, as in the design — padding and the hover wash do the separating. */
+
+	.row {
+		display: grid;
+		grid-template-columns: 110px 1fr max-content;
+		align-items: start;
+		gap: clamp(16px, 2vw, 28px);
+		padding: clamp(20px, 2.4vw, 30px) clamp(16px, 1.8vw, 26px);
+		border-radius: 2px;
+		transition: box-shadow 0.2s var(--ease-out), background 0.2s var(--ease-out);
+	}
+	.row:hover {
+		background: var(--faint);
+		box-shadow: var(--wash);
+	}
+
+	.row__date {
+		font-family: "JetBrains Mono", monospace;
+		font-weight: 500;
+		font-size: var(--t-mono-lg);
+		color: var(--mut-2);
+		font-variant-numeric: tabular-nums;
+		padding-top: 5px;
+	}
+
+	/* Title over excerpt, so the row keeps one text column rather than the
+	   excerpt starting a third rail of its own. */
+	.row__body {
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+		min-width: 0;
+	}
+
+	.row__title {
+		font: 500 var(--t-title-sm) "General Sans", sans-serif;
+		letter-spacing: -0.015em;
+		text-wrap: pretty;
+	}
+
+	.row__excerpt {
+		font: 400 var(--t-body) / 1.55 "General Sans", sans-serif;
+		color: var(--mut);
+		/* 58ch: measured ~79 characters at 68ch once --t-body's ceiling rose. */
+		max-width: 58ch;
+		text-wrap: pretty;
+	}
+
+	.row__tag {
+		justify-self: end;
+		font: 500 var(--t-micro) "JetBrains Mono", monospace;
+		letter-spacing: 0.06em;
+		color: var(--mut);
+		padding-top: 6px;
+		white-space: nowrap;
+	}
+
+	.disclaimer {
+		margin: 18px 0 0;
+		font: 400 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+	}
+
+	@media (max-width: 700px) {
+		.row {
+			grid-template-columns: 1fr auto;
+			row-gap: 8px;
+		}
+		/* The title moved inside .row__body, so the old `grid-column: 1 / -1;
+		   order: 3` on it was addressing a grid it is no longer a child of.
+		   The body spans both columns instead, keeping title and excerpt
+		   together under the date and tag. */
+		.row__body {
+			grid-column: 1 / -1;
+		}
+	}
+
+	@media (max-width: 640px) {
+		/* Rows touched exactly — 0px between posts, against 7px between a title
+		   and its own excerpt, so three entries read as one block. The list
+		   carries the separation instead of the row padding, which is all
+		   vertical once stacked. */
+		.writing__list {
+			display: flex;
+			flex-direction: column;
+			gap: 34px;
+		}
+		/* Date and tag share the first line, title and excerpt span beneath.
+		   Explicit placement: .row__body spans both columns, so without it the
+		   tag was pushed onto a row of its own *below* the excerpt, stranded on
+		   the right away from the date it pairs with. A max-content second track
+		   also pins the tag to a common right edge — `justify-self: end` against
+		   an `auto` track had left it at x=284, 225 and 251 across the three
+		   rows, aligned with nothing. */
+		.row {
+			grid-template-columns: 1fr max-content;
+			padding: 0;
+			row-gap: 10px;
+		}
+		.row__date {
+			grid-column: 1;
+			grid-row: 1;
+			padding-top: 0;
+		}
+		.row__tag {
+			grid-column: 2;
+			grid-row: 1;
+			padding-top: 0;
+			align-self: center;
+		}
+		.row__body {
+			grid-column: 1 / -1;
+			grid-row: 2;
+		}
+	}
+</style>

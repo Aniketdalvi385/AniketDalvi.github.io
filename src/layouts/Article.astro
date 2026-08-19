@@ -1,0 +1,602 @@
+---
+import Base from "./Base.astro";
+import { SITE } from "../data/site";
+
+interface Props {
+	title: string;
+	subtitle: string;
+	date: string;
+	read: string;
+	tag: string;
+	kind: "paper" | "post";
+	eyebrow?: string;
+	standfirst?: string;
+	links?: { label: string; href: string }[];
+	description?: string;
+}
+
+const {
+	title,
+	subtitle,
+	date,
+	read,
+	tag,
+	kind,
+	eyebrow,
+	standfirst,
+	links = [],
+	description,
+} = Astro.props;
+
+const label =
+	eyebrow ??
+	(kind === "paper"
+		? "Research Report · Applied AI · 2026"
+		: "Blog · Building With Local LLMs · 2026");
+---
+
+<Base title={`${title} — ${SITE.name}`} description={description ?? subtitle}>
+	<article class:list={["article", `article--${kind}`]} id="top">
+		<header class="masthead" data-reveal>
+			<p class="eyebrow">{label}</p>
+			<h1>{title}</h1>
+			<p class="subtitle">{subtitle}</p>
+			<div class="byline">
+				<span class="who">{SITE.name}</span>
+				<span>{date}</span>
+				<span>{read}</span>
+				<span class="tag">{tag}</span>
+				{
+					links.map((l) => (
+						<a href={l.href} target="_blank" rel="noopener">
+							{l.label} ↗
+						</a>
+					))
+				}
+			</div>
+			{standfirst && <p class="standfirst">{standfirst}</p>}
+		</header>
+
+		{/*
+		  No `data-reveal` here. The observer uses `threshold: 0.12`, which a
+		  full-length article can never satisfy: at a 900px viewport only ~828px
+		  of it is ever inside the root band, so anything taller than ~6900px
+		  caps its intersectionRatio below 0.12 and the callback never fires —
+		  leaving the entire body stuck at opacity 0. Article text must not
+		  depend on an observer to become visible.
+		*/}
+		<div class="prose">
+			<slot />
+		</div>
+
+		<a class="back" href="/writing" data-reveal>
+			<span class="eyebrow">← ALL WRITING</span>
+			<span class="back__title">Writing <span class="stroke">Journal</span></span>
+		</a>
+	</article>
+</Base>
+
+<style>
+	/* Measure lives on the article, so prose, figures and tables all align to one
+	   column. The paper runs slightly wider than the post: it carries tables and
+	   charts that need the room, where the blog is pure narrative. */
+	.article {
+		--col: 68ch;
+		padding: 148px var(--gutter) 0;
+	}
+	.article--post {
+		--col: 64ch;
+	}
+
+	/* 148px is 18% of an 800px phone screen spent before the title. The fixed nav
+	   is 68px, so this clears it with a breath rather than a full stanza — the
+	   same reduction the writing index and Contact got. */
+	@media (max-width: 640px) {
+		.article {
+			padding-top: 96px;
+		}
+	}
+
+	/* The masthead runs wider than the body and centres on the page rather than
+	   on the prose column. --col is the *reading* measure (64–68ch at 16px); the
+	   h1 renders at up to 86px, where that box is barely seven characters and
+	   every title wrapped regardless of length.
+
+	   It deliberately does not share the prose's left edge. Matching it meant
+	   indenting the wider block to a centred column, which left a large dead
+	   margin on the left while the title ran on past the right. Centred on the
+	   page, the extra width is split evenly and the article opens with a wide
+	   title and subtitle before settling into the standard measure below. */
+	.masthead {
+		max-width: min(100%, calc(var(--col) + 22ch));
+		margin-inline: auto;
+		text-align: center;
+		padding-bottom: clamp(40px, 6vw, 72px);
+	}
+
+	.eyebrow {
+		margin: 0;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut);
+		text-transform: uppercase;
+	}
+
+	h1 {
+		margin: clamp(20px, 3vw, 30px) 0 0;
+		font: 600 clamp(38px, 6.2vw, 86px) / 0.98 "Clash Display", sans-serif;
+		letter-spacing: -0.035em;
+		/* Break out of the masthead's --col cap. That measure (64–68ch) is sized
+		   for 16px body text; at 86px it is only ~7 characters wide, so every
+		   title wrapped regardless of length — "Deterministic-First" needed 702px
+		   inside a 633px box. A display line is not bound by a reading measure.
+		   Note the title also uses U+2011 (non-breaking hyphen) so that if it does
+		   wrap at a narrow width, it moves "First" whole rather than splitting the
+		   word. CSS cannot do that job: `hyphens: none` governs only *automatic*
+		   hyphenation, and `word-break: keep-all` leaves a literal U+002D a valid
+		   break opportunity — measured, it still split. */
+		overflow-wrap: break-word;
+	}
+
+	/* `margin-inline: auto` is required, not decorative: the 40ch cap makes this
+	   narrower than the centred masthead, and a block narrower than its parent
+	   sits left unless its own margins centre it — `text-align` on the parent
+	   only centres the text inside the box, not the box. */
+	.subtitle {
+		margin: clamp(16px, 2vw, 22px) auto 0;
+		font: 500 var(--t-title-sm) / 1.35 "General Sans", sans-serif;
+		color: var(--mut);
+		letter-spacing: -0.01em;
+		max-width: 40ch;
+	}
+	.article--post .subtitle {
+		font-weight: 400;
+		font-style: italic;
+	}
+
+	/* Flex, so `text-align: center` on the masthead does not reach it — the items
+	   need centring on the main axis themselves. */
+	.byline {
+		margin: clamp(28px, 3.5vw, 44px) 0 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px 22px;
+		align-items: center;
+		justify-content: center;
+		font-family: "JetBrains Mono", monospace;
+		font-weight: 500;
+		font-size: var(--t-mono-lg);
+		color: var(--mut);
+		font-variant-numeric: tabular-nums;
+	}
+	.byline .who {
+		color: var(--fg);
+	}
+	.byline .tag {
+		letter-spacing: 0.06em;
+	}
+	.byline a {
+		color: var(--accent);
+		transition: opacity 0.2s var(--ease-out);
+	}
+	.byline a:hover {
+		opacity: 0.7;
+	}
+
+	/* `auto` inline margins for the same reason as .subtitle: the 60ch cap makes
+	   this narrower than the centred masthead, and a narrower block sits left
+	   unless its own margins centre it. The parent's `text-align: center`
+	   centres the lines inside the box but not the box itself. */
+	.standfirst {
+		margin: clamp(26px, 3vw, 38px) auto 0;
+		font: 400 var(--t-body-lg) / 1.6 "General Sans", sans-serif;
+		color: var(--mut);
+		font-style: italic;
+		max-width: 60ch;
+	}
+
+	.prose {
+		padding-bottom: clamp(60px, 8vw, 110px);
+	}
+
+	.back {
+		display: block;
+		max-width: var(--col);
+		margin: 0 auto;
+		padding: clamp(40px, 6vw, 90px) 0;
+	}
+	.back .eyebrow {
+		display: block;
+		margin-bottom: 14px;
+		transition: color 0.2s var(--ease-out);
+	}
+	.back:hover .eyebrow {
+		color: var(--fg);
+	}
+	.back__title {
+		font: 600 var(--t-display-sm) / 0.94 "Clash Display", sans-serif;
+		letter-spacing: -0.04em;
+	}
+	.stroke {
+		-webkit-text-stroke: clamp(1px, 0.18vw, 2px) var(--fg);
+		color: transparent;
+	}
+</style>
+
+<style is:global>
+	/* ==========================================================================
+	   Long-form body styles.
+	   Global rather than scoped: MDX content is compiled separately, so it never
+	   carries this component's [data-astro-cid-…] attribute and scoped selectors
+	   would not reach it. Everything is namespaced under .prose to compensate.
+	   ========================================================================== */
+	/* Centre the measure on the container, not on each child. Per-child
+	   `margin-inline: auto` silently fails for anything that sets its own
+	   `display` (h2 and the lists are flex) or its own `max-width` (.tbl-wrap),
+	   which left headings and lists hanging outside the text column. Elements
+	   that need to exceed the measure opt out explicitly below. */
+	.prose {
+		max-width: var(--col);
+		margin-inline: auto;
+	}
+
+	/* Wide elements break out of the measure symmetrically: charts and tables
+	   carry detail that a 68ch column would crush. */
+	.prose .bleed,
+	.prose .tbl-wrap,
+	.prose .comp-grid {
+		width: min(1000px, 88vw);
+		margin-inline: calc(50% - min(500px, 44vw));
+	}
+
+	/* Eyebrow labels appearing inside MDX content (the abstract, companion
+	   headings). The layout's own .eyebrow is scoped and cannot reach these. */
+	.prose .eyebrow {
+		margin: 0 0 16px;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut);
+		text-transform: uppercase;
+	}
+
+	/* Set-apart slabs — the abstract that opens the paper and the takeaways that
+	   close the case study. The one place a bordered card is right: each is a
+	   distinct object in the document, not a page division. */
+	.prose .abstract,
+	.prose .takeaways {
+		margin: clamp(40px, 5vw, 64px) auto;
+		padding: clamp(24px, 3vw, 36px);
+		background: var(--card);
+		border: 1px solid var(--line);
+		border-radius: 2px;
+	}
+	.prose .abstract p:not(.eyebrow) {
+		font-size: clamp(14px, 1.05vw, 15.5px);
+		line-height: 1.7;
+	}
+	.prose .abstract p:last-child {
+		margin-bottom: 0;
+	}
+	/* The takeaways list is the slab's only content, so it carries no trailing
+	   margin and sits a little looser than a run-of-text list. */
+	.prose .takeaways ul {
+		margin: 0;
+		gap: 14px;
+	}
+
+	.prose h2 {
+		margin: clamp(40px, 5vw, 68px) 0 clamp(18px, 2vw, 26px);
+		font: 600 clamp(24px, 3vw, 38px) / 1.05 "Clash Display", sans-serif;
+		letter-spacing: -0.025em;
+		display: flex;
+		align-items: baseline;
+		gap: 14px;
+	}
+	/* Section numbers on the paper: a mono counter that hangs beside the title. */
+	.prose h2 .num {
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--accent);
+		letter-spacing: 0.04em;
+		flex: none;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.prose h3 {
+		margin: clamp(30px, 3.5vw, 44px) 0 clamp(12px, 1.4vw, 18px);
+		font: 600 var(--t-title-sm) "General Sans", sans-serif;
+		letter-spacing: -0.015em;
+	}
+	/* Numbered sub-headings (the case study's three moves). Flex so the counter
+	   hangs beside the title rather than indenting the wrapped text. */
+	.prose h3:has(.mnum) {
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
+	}
+	.prose h3 .mnum {
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--accent);
+		flex: none;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.prose p {
+		margin: 0 0 clamp(14px, 1.5vw, 20px);
+		font: 400 clamp(15px, 1.15vw, 17px) / 1.65 "General Sans", sans-serif;
+	}
+	.article--post .prose p {
+		font-size: clamp(16px, 1.2vw, 18px);
+		line-height: 1.7;
+	}
+	/* Opening paragraph carries a touch more weight, as in the source design. */
+	.article--post .prose .lede > p:first-child {
+		font-size: clamp(17px, 1.55vw, 21px);
+		line-height: 1.6;
+	}
+
+	.prose strong {
+		font-weight: 600;
+	}
+	.prose em {
+		font-style: italic;
+	}
+
+	.prose a:not(.plain) {
+		color: var(--accent);
+		border-bottom: 1px solid
+			color-mix(in srgb, var(--accent) 40%, transparent);
+		transition: border-color 0.2s var(--ease-out);
+	}
+	.prose a:not(.plain):hover {
+		border-bottom-color: var(--accent);
+	}
+
+	/* Lists use an explicit marker cell so the glyph hangs outside the text
+	   column and wrapped lines stay flush — same pattern as Experience. */
+	.prose ul,
+	.prose ol {
+		margin: 0 0 clamp(16px, 1.8vw, 22px);
+		padding-left: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.prose li {
+		display: grid;
+		grid-template-columns: 20px 1fr;
+		gap: 10px;
+		font: 400 clamp(15px, 1.1vw, 16.5px) / 1.6 "General Sans", sans-serif;
+	}
+	.prose li .b {
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--accent);
+		padding-top: 3px;
+		font-variant-numeric: tabular-nums;
+	}
+	.prose ol {
+		counter-reset: li;
+	}
+	.prose ol li {
+		counter-increment: li;
+	}
+	.prose ol li .b::before {
+		content: counter(li);
+	}
+
+	.prose code {
+		font: 500 0.88em "JetBrains Mono", monospace;
+		background: var(--card);
+		padding: 0.12em 0.4em;
+		border-radius: 2px;
+		border: 1px solid var(--line);
+	}
+	/* Shiki's `css-variables` theme resolves these; mapping them to our own
+	   tokens keeps code blocks on the site palette and theme-aware. The
+	   background is overridden below because Shiki also sets it inline. */
+	.prose {
+		--astro-code-foreground: var(--fg);
+		--astro-code-background: transparent;
+		--astro-code-token-comment: var(--mut);
+		--astro-code-token-string: var(--accent);
+		--astro-code-token-keyword: var(--fg);
+		--astro-code-token-constant: var(--accent);
+		--astro-code-token-function: var(--fg);
+		--astro-code-token-punctuation: var(--mut);
+		--astro-code-token-parameter: var(--fg);
+		--astro-code-token-string-expression: var(--accent);
+		--astro-code-token-link: var(--accent);
+	}
+	.prose pre {
+		margin: clamp(18px, 2vw, 26px) 0;
+		padding: clamp(16px, 2vw, 24px);
+		/* !important: Shiki writes background-color into the element's inline
+		   style attribute, which a normal declaration cannot outrank. */
+		background: var(--card) !important;
+		border: 1px solid var(--line);
+		border-radius: 2px;
+		overflow-x: auto;
+	}
+	.prose pre code {
+		background: none;
+		border: 0;
+		padding: 0;
+		font-size: var(--t-mono-lg);
+		line-height: 1.6;
+		white-space: pre;
+		color: var(--fg);
+	}
+
+	/* ---- figures ---- */
+	/* margin-block only: `margin: … auto` would reset the inline offset that the
+	   break-out rule gives figure.bleed. */
+	.prose figure {
+		margin-block: clamp(28px, 4vw, 52px);
+		text-align: center;
+	}
+	/* Charts earn the full column width; memes stay small so they read as an
+	   aside rather than as evidence. */
+	/* .bleed sizing is handled by the break-out rule above. */
+	.prose figure img {
+		max-width: 100%;
+		/* Cap by height as well as width. The break-out rule sizes .bleed by
+		   width alone, which is right for the landscape charts but stretches the
+		   portrait pipeline diagrams to ~1500px tall — taller than the viewport,
+		   so they dominate the scroll and can't be seen whole. Constraining the
+		   height lets `width: auto` shrink them back to their aspect ratio. */
+		max-height: min(78vh, 720px);
+		width: auto;
+		height: auto;
+		border: 1px solid var(--line);
+		border-radius: 2px;
+		background: var(--card);
+	}
+	.prose figure.meme img {
+		max-width: min(100%, 440px);
+		border: 0;
+	}
+	.prose figcaption {
+		margin-top: 12px;
+		font: 400 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--mut);
+		letter-spacing: 0.02em;
+	}
+
+	/* ---- tables ----
+	   The one place borders survive: a table without rules is unreadable, and
+	   these are a contained object rather than page structure. */
+	.prose .tbl-cap {
+		margin: clamp(20px, 2.5vw, 30px) 0 10px;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.06em;
+		color: var(--mut);
+		text-transform: uppercase;
+	}
+	/* Block margins only — the inline margins come from the break-out rule and a
+	   `margin: … 0` shorthand here would silently reset them. */
+	.prose .tbl-wrap {
+		margin-block: clamp(20px, 2.5vw, 32px);
+		overflow-x: auto;
+		border: 1px solid var(--line);
+		border-radius: 2px;
+	}
+	.prose table {
+		width: 100%;
+		border-collapse: collapse;
+		font-variant-numeric: tabular-nums;
+	}
+	.prose th,
+	.prose td {
+		padding: 11px 16px;
+		text-align: left;
+		border-bottom: 1px solid var(--line);
+		font: 400 13.5px / 1.45 "General Sans", sans-serif;
+		vertical-align: top;
+	}
+	.prose th {
+		font: 600 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--mut);
+		background: var(--faint);
+	}
+	.prose tbody tr:last-child td {
+		border-bottom: 0;
+	}
+	.prose tbody tr.total td {
+		border-top: 2px solid var(--line);
+		font-weight: 600;
+		background: var(--faint);
+	}
+	.prose td code {
+		font-size: var(--t-mono-lg);
+	}
+
+	/* ---- callouts ---- */
+	.prose .note,
+	.prose .aside {
+		margin: clamp(20px, 2.5vw, 30px) auto;
+		padding: clamp(16px, 2vw, 22px) clamp(18px, 2vw, 24px);
+		border-left: 2px solid var(--accent);
+		background: var(--faint);
+		border-radius: 0 2px 2px 0;
+	}
+	.prose .note p,
+	.prose .aside p {
+		margin: 0;
+		font: 400 var(--t-body) / 1.6 "General Sans", sans-serif;
+		color: var(--mut);
+	}
+	.prose .aside p {
+		font-style: italic;
+	}
+	.prose .note em {
+		color: var(--fg);
+	}
+
+	/* ---- the big pull-number on the blog post ---- */
+	.prose .bignum {
+		margin: clamp(28px, 4vw, 52px) auto;
+		text-align: center;
+	}
+	.prose .bignum .n {
+		font-family: "Clash Display", sans-serif;
+		font-weight: 600;
+		font-size: clamp(72px, 14vw, 180px);
+		line-height: 0.9;
+		letter-spacing: -0.05em;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* ---- companion cards ---- */
+	.prose .companion {
+		padding: clamp(40px, 6vw, 80px) 0 0;
+	}
+	.prose .companion > .eyebrow {
+		margin: 0 0 clamp(20px, 2.5vw, 30px);
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut);
+		text-transform: uppercase;
+	}
+	.prose .comp-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+		gap: clamp(14px, 2vw, 20px);
+	}
+	.prose .comp-card {
+		display: block;
+		padding: clamp(20px, 2.4vw, 28px);
+		border: 1px solid var(--line);
+		border-radius: 2px;
+		transition: background 0.2s var(--ease-out),
+			box-shadow 0.2s var(--ease-out);
+	}
+	.prose .comp-card:hover {
+		background: var(--faint);
+		box-shadow: var(--wash);
+	}
+	.prose .comp-card .k {
+		font: 500 var(--t-micro) "JetBrains Mono", monospace;
+		letter-spacing: 0.14em;
+		color: var(--mut);
+		text-transform: uppercase;
+	}
+	.prose .comp-card .t {
+		margin: 12px 0 8px;
+		font: 600 var(--t-title-sm) "Clash Display", sans-serif;
+		letter-spacing: -0.02em;
+	}
+	.prose .comp-card .d {
+		font: 400 var(--t-body) / 1.5 "General Sans", sans-serif;
+		color: var(--mut);
+	}
+	.prose .comp-card .go {
+		margin-top: 14px;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--accent);
+	}
+	.prose .comp-card:hover {
+		border-color: var(--line);
+	}
+</style>

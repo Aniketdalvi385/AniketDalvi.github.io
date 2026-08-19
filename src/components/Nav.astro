@@ -1,0 +1,576 @@
+---
+import { NAV, SITE } from "../data/site";
+
+interface Props {
+	/** Path of the page holding the anchor sections. */
+	homeHref?: string;
+}
+
+const { homeHref = "/" } = Astro.props;
+
+// Derive from the real URL, not a prop — otherwise every page thinks it is the
+// homepage and renders bare "#work" anchors that resolve to nothing.
+// build.format: "file" makes pathname "/index.html" at build time, so strip the
+// index segment too before comparing.
+const norm = (p: string) =>
+	p.replace(/\/index\.html$/, "/").replace(/\.html$/, "").replace(/\/+$/, "") || "/";
+const path = norm(Astro.url.pathname);
+const isHome = path === norm(homeHref);
+
+// Sections that live on their own route rather than as a homepage anchor.
+const ROUTES: Record<string, string> = { writing: "/writing" };
+---
+
+<header class="nav">
+	<a
+		class="brand"
+		href={isHome ? "#top" : homeHref}
+		data-prev={isHome ? undefined : ""}
+		aria-label={`${SITE.name} home`}
+	>
+		<span class="mark">{SITE.initials}</span>
+		<span class="nm">{SITE.name}</span>
+	</a>
+
+	<nav class="nav-right">
+		{
+			NAV.map((n) => {
+				const route = ROUTES[n.id];
+				// On its own route, a section links to that route from anywhere.
+				// Otherwise: an anchor at home, a home-relative link elsewhere.
+				const href = route ?? (isHome ? `#${n.id}` : `${homeHref}#${n.id}`);
+				const current = route ? path === route : false;
+				// Links leaving this page back to the anchor host exit through the
+				// veil transition (BackOverscroll picks these up via [data-prev]).
+				const viaVeil = !isHome && !route;
+				return (
+					<a
+						class="nav-link"
+						href={href}
+						aria-current={current ? "page" : undefined}
+						data-prev={viaVeil ? "" : undefined}
+					>
+						{n.label}
+					</a>
+				);
+			})
+		}
+		<button class="toggle" id="themeToggle" type="button" aria-label="Toggle color theme">
+			<span class="dot"></span><span id="themeLabel">Light</span>
+		</button>
+
+		<!-- Only rendered below 860px, where .nav-link is hidden. Without it the
+		     five sections are undiscoverable on mobile and /writing has no route
+		     home except the footer link. -->
+		<button
+			class="burger"
+			id="navBurger"
+			type="button"
+			aria-label="Open menu"
+			aria-expanded="false"
+			aria-controls="navPanel"
+		>
+			<span class="burger__box"><span class="burger__bar"></span><span class="burger__bar"></span></span>
+		</button>
+	</nav>
+
+</header>
+
+<!-- Outside <header>, not inside it. `.nav` is `position: fixed; z-index: 50`,
+     which makes it a stacking context — a descendant's z-index is then resolved
+     only among its siblings inside that context, so the panel could never paint
+     below the header no matter how low its value. Nested, it covered the burger
+     and `elementFromPoint` at the burger's centre returned `.panel__link`:
+     the menu had no reachable close control. As a sibling the two z-indexes are
+     compared in the same context and 45 < 50 does what it says. -->
+<div class="panel" id="navPanel" data-panel hidden>
+		<nav class="panel__nav" aria-label="Mobile">
+			{
+				NAV.map((n) => {
+					const route = ROUTES[n.id];
+					const href = route ?? (isHome ? `#${n.id}` : `${homeHref}#${n.id}`);
+					const current = route ? path === route : false;
+					const viaVeil = !isHome && !route;
+					return (
+						<a
+							class="panel__link"
+							href={href}
+							aria-current={current ? "page" : undefined}
+							data-prev={viaVeil ? "" : undefined}
+						>
+							<span class="panel__idx">{String(NAV.indexOf(n) + 1).padStart(2, "0")}</span>
+							<span class="panel__label">{n.label}</span>
+						</a>
+					);
+				})
+			}
+		</nav>
+</div>
+
+<style>
+	.nav {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 50;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 16px var(--gutter);
+		background: var(--bg);
+		transition: background 0.5s ease;
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 13px;
+	}
+
+	.mark {
+		width: 26px;
+		height: 26px;
+		border: 1px solid var(--fg);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font: 600 var(--t-mono) "JetBrains Mono", monospace;
+		flex: none;
+	}
+
+	.nm {
+		font: 500 var(--t-body) "General Sans", sans-serif;
+		letter-spacing: -0.01em;
+	}
+
+	.nav-right {
+		display: flex;
+		align-items: center;
+		gap: clamp(16px, 2vw, 30px);
+	}
+
+	.nav-link {
+		position: relative;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.06em;
+		color: var(--mut);
+		transition: color 0.2s var(--ease-out);
+	}
+	.nav-link:hover {
+		color: var(--fg);
+	}
+
+	/* Current section (scroll-spy) or current route. */
+	.nav-link[aria-current] {
+		color: var(--fg);
+	}
+	/* Drawn on every link, not just the current one: a pseudo-element that is
+	   created and destroyed with the attribute has nothing to transition, so the
+	   underline flickered between sections as the scroll-spy moved. Always
+	   present, collapsed to scaleX(0), it can animate. scaleX rather than width
+	   because width is a layout property and this fires on every scroll tick. */
+	.nav-link::after {
+		content: "";
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: -6px;
+		height: 1px;
+		background: var(--fg);
+		transform: scaleX(0);
+		transform-origin: left;
+		transition: transform 0.2s var(--ease-out);
+	}
+	.nav-link[aria-current]::after {
+		transform: scaleX(1);
+	}
+
+	.toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		margin-left: 6px;
+		padding: 7px 13px;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--fg);
+		cursor: pointer;
+		font: 500 var(--t-micro) "JetBrains Mono", monospace;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		transition: background 0.2s var(--ease-out);
+	}
+	.toggle:hover {
+		background: var(--card);
+	}
+	/* ~28px tall at the base padding. Height only — widening it would crowd the
+	   burger sitting next to it in a header already tight at 360px. */
+	@media (pointer: coarse) {
+		.toggle {
+			min-height: 44px;
+			-webkit-tap-highlight-color: transparent;
+		}
+		/* The brand is a 26px mark, padded out to the 44px minimum without
+		   changing what is painted. */
+		.brand {
+			min-height: 44px;
+			-webkit-tap-highlight-color: transparent;
+		}
+	}
+
+	.dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: var(--fg);
+		/* Feedback on the one control whose job is signalling state: the label and
+		   the page both respond to a theme switch, but the dot the eye is on did
+		   not. Transition, not a keyframe: a rapid double-toggle retargets from
+		   the current scale instead of restarting, so the dot never jumps. */
+		transition: transform 0.22s var(--ease-spring);
+	}
+	.toggle[data-switched] .dot {
+		transform: scale(1.55);
+	}
+
+	/* The burger and the inline links are mutually exclusive: whichever set is
+	   hidden, the other is shown, at the same 860px boundary. */
+	.burger {
+		display: none;
+		padding: 10px;
+		margin-right: -10px;
+		border: 0;
+		background: transparent;
+		color: var(--fg);
+		cursor: pointer;
+		/* Suppress the 300ms tap delay and the grey flash on iOS. */
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	/* 42x42 at the base padding. Must follow the .burger rule above: both are
+	   single-class selectors, so an earlier media query loses on source order —
+	   the same trap as the .hint pill in BackOverscroll. */
+	@media (pointer: coarse) {
+		.burger {
+			padding: 11px;
+			margin-right: -11px;
+		}
+	}
+
+	.burger__box {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 5px;
+		width: 22px;
+		height: 22px;
+	}
+
+	.burger__bar {
+		height: 1.5px;
+		width: 100%;
+		background: var(--fg);
+		border-radius: 2px;
+		/* Transform-only so the morph to an X stays on the GPU. */
+		transition: transform 0.2s var(--ease-out), opacity 0.2s var(--ease-out);
+	}
+
+	/* Two bars, not three: they rotate into an X around the box centre, so the
+	   translate is half the 5px gap plus the 1.5px bar. */
+	.burger[aria-expanded="true"] .burger__bar:first-child {
+		transform: translateY(3.25px) rotate(45deg);
+	}
+	.burger[aria-expanded="true"] .burger__bar:last-child {
+		transform: translateY(-3.25px) rotate(-45deg);
+	}
+
+	.panel {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		/* Not 100vh: mobile browser chrome makes vh taller than the visible area,
+		   pushing the last link under the URL bar. dvh tracks the live viewport. */
+		height: 100dvh;
+		z-index: 45;
+		background: var(--bg);
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		/* Top padding clears the fixed header (~76px at this breakpoint) so the
+		   first link never sits under the burger — the panel slides *behind* the
+		   nav bar, which stays painted on top with the X visible and tappable. */
+		padding: 92px var(--gutter) 0;
+		/* Enters from above, behind the nav bar (z-index 50), so the header and
+		   its close button stay legible throughout. */
+		transform: translateY(-100%);
+		transition: transform 0.42s var(--ease-out);
+	}
+	.panel[data-open] {
+		transform: translateY(0);
+	}
+
+	.panel__nav {
+		display: flex;
+		flex-direction: column;
+		gap: clamp(4px, 1.4vw, 10px);
+	}
+
+	.panel__link {
+		display: flex;
+		align-items: baseline;
+		gap: 16px;
+		/* Comfortably past the 44px minimum; these are the primary targets. */
+		padding: 14px 0;
+		color: var(--fg);
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.panel__idx {
+		font-family: "JetBrains Mono", monospace;
+		font-weight: 500;
+		font-size: 11px;
+		font-variant-numeric: tabular-nums;
+		color: var(--mut);
+	}
+
+	.panel__label {
+		font: 600 clamp(30px, 9vw, 46px) / 1 "Clash Display", sans-serif;
+		letter-spacing: -0.03em;
+	}
+
+	.panel__link[aria-current] .panel__label {
+		text-decoration: underline;
+		text-underline-offset: 6px;
+		text-decoration-thickness: 1px;
+	}
+
+	.panel__link:active .panel__label {
+		opacity: 0.55;
+	}
+
+	/* Links arrive in a stagger once the panel is open. `animation`, not
+	   `transition` — see CLAUDE.md: a transition-based stagger loses the
+	   specificity fight with component-scoped rules and every delay computes 0s. */
+	.panel[data-open] .panel__link {
+		animation: panelIn 0.4s var(--ease-out) backwards;
+		animation-delay: calc(60ms + var(--i, 0) * 45ms);
+	}
+
+	@keyframes panelIn {
+		from {
+			opacity: 0;
+			transform: translateY(14px);
+		}
+	}
+
+	/* Collapse to the mark + toggle on narrow screens */
+	@media (max-width: 860px) {
+		.nav-link {
+			display: none;
+		}
+		.burger {
+			display: block;
+		}
+	}
+	/* Above the breakpoint the panel must never be reachable, even if a resize
+	   leaves it open — the burger that closes it is display:none up here. */
+	@media (min-width: 861px) {
+		.panel {
+			display: none;
+		}
+	}
+	@media (max-width: 640px) {
+		.nm {
+			display: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.nav-link::after {
+			transition: none;
+		}
+		.panel {
+			transition: none;
+		}
+		.panel[data-open] .panel__link {
+			animation: none;
+		}
+		.burger__bar {
+			transition: none;
+		}
+	}
+
+</style>
+
+<script>
+	const root = document.documentElement;
+	const toggle = document.getElementById("themeToggle");
+	const label = document.getElementById("themeLabel");
+
+	const systemDark = () =>
+		window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+	// The attribute is only present when the user has made an explicit choice;
+	// otherwise fall back to the OS preference.
+	const current = () => root.getAttribute("data-theme") ?? (systemDark() ? "dark" : "light");
+
+	const sync = () => {
+		if (label) label.textContent = current() === "dark" ? "Dark" : "Light";
+	};
+
+	sync();
+
+	toggle?.addEventListener("click", () => {
+		const next = current() === "dark" ? "light" : "dark";
+		root.setAttribute("data-theme", next);
+		try {
+			localStorage.setItem("ad_theme", next);
+		} catch (e) {
+			/* private mode — theme resets next load */
+		}
+		sync();
+
+		// Pulse the dot. Cleared after 180ms so the transition runs back down to
+		// rest; because it is a transition rather than a keyframe, a second click
+		// mid-pulse retargets from the current scale instead of snapping to 1.
+		if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+			toggle.setAttribute("data-switched", "");
+			window.setTimeout(() => toggle.removeAttribute("data-switched"), 180);
+		}
+	});
+
+	// Track the OS preference while the user has no explicit override.
+	window
+		.matchMedia("(prefers-color-scheme: dark)")
+		.addEventListener("change", () => {
+			if (!root.hasAttribute("data-theme")) sync();
+		});
+
+	// ── Mobile panel ────────────────────────────────────────────────────────
+	const burger = document.getElementById("navBurger");
+	const panel = document.querySelector<HTMLElement>("[data-panel]");
+
+	if (burger && panel) {
+		const links = [...panel.querySelectorAll<HTMLAnchorElement>(".panel__link")];
+
+		// Index each link so the CSS stagger has a delay to compute from.
+		links.forEach((a, i) => a.style.setProperty("--i", String(i)));
+
+		let open = false;
+
+		const setOpen = (next: boolean) => {
+			if (next === open) return;
+			open = next;
+			burger.setAttribute("aria-expanded", String(next));
+			burger.setAttribute("aria-label", next ? "Close menu" : "Open menu");
+
+			if (next) {
+				// `hidden` must come off before the transform can animate — the
+				// attribute is display:none, and a display change is not animatable.
+				panel.hidden = false;
+				// Force a synchronous style/layout pass so the browser registers the
+				// panel at translateY(-100%) before `data-open` retargets it —
+				// otherwise the two changes coalesce into one recalc and it appears
+				// with no slide. A rAF pair reads as the more idiomatic way to do
+				// this, but rAF is throttled in background tabs and starved under
+				// headless virtual time, and when it never fires the panel is left
+				// off-screen while the scroll lock below is already applied — a
+				// locked page with no visible menu. Reading offsetHeight cannot be
+				// deferred, so the open path has no frame dependency at all.
+				void panel.offsetHeight;
+				panel.setAttribute("data-open", "");
+				// documentElement, matching the preloader's lock — see CLAUDE.md.
+				root.style.overflow = "hidden";
+			} else {
+				panel.removeAttribute("data-open");
+				root.style.overflow = "";
+				// Re-hide only after the slide-out finishes, so the panel is not
+				// yanked out of flow mid-transition. Guarded on `open` because a
+				// reopen inside the timeout window must cancel the hide.
+				const done = () => {
+					if (!open) panel.hidden = true;
+				};
+				if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) done();
+				else window.setTimeout(done, 420);
+			}
+		};
+
+		burger.addEventListener("click", () => setOpen(!open));
+
+		// Anchor links must close the panel, or the smooth-scroll they trigger
+		// happens behind a full-screen cover. Route links close too — harmless,
+		// and it avoids the panel flashing during the navigation.
+		links.forEach((a) => a.addEventListener("click", () => setOpen(false)));
+
+		document.addEventListener("keydown", (e) => {
+			if (!open) return;
+			if (e.key === "Escape") {
+				setOpen(false);
+				burger.focus();
+				return;
+			}
+			// Focus trap: the panel covers the page, so Tab must not walk into the
+			// content behind it. The burger is the close control and stays in the
+			// cycle.
+			if (e.key === "Tab") {
+				const focusables = [burger, ...links];
+				const first = focusables[0];
+				const last = focusables[focusables.length - 1];
+				if (e.shiftKey && document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				} else if (!e.shiftKey && document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			}
+		});
+
+		// Crossing the breakpoint hides the burger, which would strand an open
+		// panel with no way to dismiss it and the scroll lock still applied.
+		window.matchMedia("(max-width: 860px)").addEventListener("change", (e) => {
+			if (!e.matches) setOpen(false);
+		});
+	}
+
+	// Scroll-spy: highlight the nav item for the section currently in view.
+	// Only applies to same-page anchors; route links keep their server-set state.
+	const anchors = [...document.querySelectorAll<HTMLAnchorElement>('.nav-link[href^="#"]')];
+
+	if (anchors.length && "IntersectionObserver" in window) {
+		const sections = anchors
+			.map((a) => document.getElementById(a.getAttribute("href")!.slice(1)))
+			.filter((el): el is HTMLElement => !!el);
+
+		const visible = new Set<string>();
+
+		const paint = () => {
+			// Topmost visible section wins, so overlapping sections don't flicker.
+			const active = sections.find((s) => visible.has(s.id))?.id;
+			anchors.forEach((a) => {
+				const id = a.getAttribute("href")!.slice(1);
+				if (id === active) a.setAttribute("aria-current", "true");
+				else a.removeAttribute("aria-current");
+			});
+		};
+
+		const spy = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((en) => {
+					if (en.isIntersecting) visible.add(en.target.id);
+					else visible.delete(en.target.id);
+				});
+				paint();
+			},
+			// Band just below the nav — a section counts as current once its top
+			// reaches the nav and until it has scrolled well past.
+			{ rootMargin: "-68px 0px -55% 0px", threshold: 0 }
+		);
+
+		sections.forEach((s) => spy.observe(s));
+	}
+</script>

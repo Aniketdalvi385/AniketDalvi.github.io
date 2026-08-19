@@ -1,0 +1,258 @@
+---
+interface Props {
+	/** Destination when the upward gesture completes. */
+	href: string;
+	/** Pill label, e.g. "↑ PREV · PORTFOLIO". */
+	label?: string;
+	/** Shown as the veil lifts on arrival — names the page you have landed on. */
+	veilLabel: string;
+	veilTitle: string;
+	/** Shown as the veil drops on departure — names where you are going. */
+	exitLabel: string;
+	exitTitle: string;
+}
+
+const {
+	href,
+	label = "↑ PREV · PORTFOLIO",
+	veilLabel,
+	veilTitle,
+	exitLabel,
+	exitTitle,
+} = Astro.props;
+---
+
+<!-- One veil serves two moments: it covers on load and lifts (announcing the
+     page you arrived on), then drops back down when leaving (announcing the
+     destination). The label swaps at departure, so it never names the wrong
+     page. -->
+<div
+	class="veil is-covering"
+	data-veil
+	data-exit-label={exitLabel}
+	data-exit-title={exitTitle}
+	aria-hidden="true"
+>
+	<span class="veil__label" data-veil-label>{veilLabel}</span>
+	<span class="veil__title" data-veil-title>{veilTitle}</span>
+</div>
+
+<!-- Floating gesture indicator — fixed, not part of page flow. Only visible
+     while the user is actively overscrolling past the top. -->
+<div class="hint" data-hint data-href={href} aria-hidden="true">
+	<span class="hint__label">{label}</span>
+	<div class="hint__bar"><div class="hint__fill" data-fill></div></div>
+</div>
+
+<style>
+	.veil {
+		position: fixed;
+		inset: 0;
+		z-index: 200;
+		background: var(--bg);
+		color: var(--fg);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 16px;
+		transform: translateY(-101%);
+		transition: transform 0.7s var(--ease-veil);
+		pointer-events: none;
+	}
+	.veil.is-covering {
+		transform: translateY(0);
+		pointer-events: auto;
+	}
+
+	.veil__label {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.2em;
+		color: var(--mut);
+	}
+
+	.veil__title {
+		font: 600 var(--t-display) / 1 "Clash Display", sans-serif;
+		letter-spacing: -0.04em;
+	}
+
+	.hint {
+		position: fixed;
+		top: 70px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 55;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		padding: 10px 16px;
+		border-radius: 999px;
+		background: var(--bg);
+		border: 1px solid var(--line);
+		opacity: 0;
+		transition: opacity 0.2s ease;
+		pointer-events: none;
+	}
+	.hint.is-active {
+		opacity: 1;
+	}
+
+	/* The gesture that drives this pill is wheel-only (gated on `!coarse` in the
+	   script below), so on touch it can never become visible — it would only ever
+	   be an invisible fixed element sitting over the page. Removed outright so it
+	   cannot intercept anything.
+	   Must follow the `.hint` base rule: both are single-class selectors, so the
+	   later one wins and a media query placed above `display: flex` silently
+	   loses. */
+	@media (pointer: coarse) {
+		.hint {
+			display: none;
+		}
+	}
+
+	.hint__label {
+		font: 500 var(--t-micro) "JetBrains Mono", monospace;
+		letter-spacing: 0.12em;
+		color: var(--mut);
+		white-space: nowrap;
+	}
+
+	.hint__bar {
+		width: 120px;
+		height: 2px;
+		background: var(--line);
+		position: relative;
+		overflow: hidden;
+	}
+
+	/* scaleX, not width: this is rewritten on every wheel event during the
+	   gesture — the moment frame budget matters most — and width forces layout
+	   and paint on each one. */
+	.hint__fill {
+		position: absolute;
+		left: 0;
+		top: 0;
+		height: 100%;
+		width: 100%;
+		transform: scaleX(0);
+		transform-origin: left;
+		background: var(--fg);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.veil {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	const veil = document.querySelector<HTMLElement>("[data-veil]");
+	const hint = document.querySelector<HTMLElement>("[data-hint]");
+	const fill = document.querySelector<HTMLElement>("[data-fill]");
+	const href = hint?.dataset.href;
+
+	// Lift the entrance veil once the page has painted.
+	requestAnimationFrame(() => {
+		window.setTimeout(() => veil?.classList.remove("is-covering"), 60);
+	});
+
+	if (hint && href) {
+		const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const coarse = window.matchMedia("(pointer: coarse)").matches;
+
+		// Threshold from the design's Blog page.
+		const THRESHOLD = 700;
+
+		let back = 0;
+		let last = 0;
+		let decaying = false;
+		let navigating = false;
+		let raf = 0;
+
+		const render = () => {
+			const p = Math.min(1, back / THRESHOLD);
+			if (fill) fill.style.transform = "scaleX(" + p.toFixed(4) + ")";
+			hint.classList.toggle("is-active", p > 0.02);
+		};
+
+		const goPrev = (dest: string) => {
+			if (navigating) return;
+			navigating = true;
+			back = THRESHOLD;
+			render();
+
+			// Re-label for the destination before the veil comes back down —
+			// otherwise leaving for the portfolio flashes this page's own name.
+			if (veil) {
+				const l = veil.querySelector("[data-veil-label]");
+				const t = veil.querySelector("[data-veil-title]");
+				if (l && veil.dataset.exitLabel) l.textContent = veil.dataset.exitLabel;
+				if (t && veil.dataset.exitTitle) t.textContent = veil.dataset.exitTitle;
+			}
+
+			// Drop the veil back down to cover before leaving.
+			veil?.classList.add("is-covering");
+			window.setTimeout(() => {
+				window.location.href = dest;
+			}, reduce ? 80 : 640);
+		};
+
+		const decay = () => {
+			if (navigating) return;
+			if (performance.now() - last > 200 && back > 0) {
+				back *= 0.88;
+				if (back < 6) back = 0;
+				render();
+			}
+			if (back > 0) raf = requestAnimationFrame(decay);
+			else decaying = false;
+		};
+
+		const addBack = (mag: number) => {
+			if (mag <= 0 && back <= 0) return;
+			back = Math.max(0, back + mag);
+			last = performance.now();
+			render();
+			if (back / THRESHOLD >= 1) {
+				goPrev(href);
+				return;
+			}
+			if (!decaying) {
+				decaying = true;
+				raf = requestAnimationFrame(decay);
+			}
+		};
+
+		if (!reduce && !coarse) {
+			window.addEventListener(
+				"wheel",
+				(e) => {
+					if (e.ctrlKey || navigating) return;
+					const d = e.deltaY * (e.deltaMode === 1 ? 28 : 1);
+					const atTop = window.scrollY <= 2;
+					// Only intercept upward deltas at the very top of the page.
+					if ((atTop && d < 0) || back > 0) {
+						e.preventDefault();
+						addBack(-d);
+					}
+				},
+				{ passive: false }
+			);
+		}
+
+		// Nav links and the footer block leave through the same veil transition,
+		// preserving their own destination.
+		document.querySelectorAll<HTMLAnchorElement>("[data-prev]").forEach((a) => {
+			a.addEventListener("click", (e) => {
+				const dest = a.getAttribute("href");
+				if (!dest) return;
+				e.preventDefault();
+				goPrev(dest);
+			});
+		});
+
+		window.addEventListener("pagehide", () => cancelAnimationFrame(raf));
+	}
+</script>

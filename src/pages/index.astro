@@ -1,0 +1,41 @@
+---
+import Base from "../layouts/Base.astro";
+import Hero from "../components/Hero.astro";
+import Metrics from "../components/Metrics.astro";
+import Ticker from "../components/Ticker.astro";
+import Work from "../components/Work.astro";
+import Statement from "../components/Statement.astro";
+import About from "../components/About.astro";
+import Experience from "../components/Experience.astro";
+import Writing from "../components/Writing.astro";
+import Contact from "../components/Contact.astro";
+import OverscrollLink from "../components/OverscrollLink.astro";
+import { METRIC_WORDS, SKILL_WORDS } from "../data/site";
+---
+
+<Base>
+	<Hero />
+	<Metrics />
+	<Ticker words={SKILL_WORDS} separator="/" variant="mono" duration="26s" />
+	<Work />
+	<Statement />
+	<About />
+	<Experience />
+	<Ticker
+		words={METRIC_WORDS}
+		separator="—"
+		variant="display"
+		duration="30s"
+		reverse
+	/>
+	<Writing />
+	<Contact />
+	<OverscrollLink
+		href="/writing"
+		index="02"
+		title="Writing"
+		titleStroke="Journal"
+		veilLabel="02 — JOURNAL"
+		veilTitle="Writing"
+	/>
+</Base>

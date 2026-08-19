@@ -1,0 +1,422 @@
+---
+import { PROJECTS } from "../data/site";
+---
+
+<section id="work" class="work">
+	<div class="work__head" data-reveal>
+		<h2>SELECTED&nbsp;WORK</h2>
+		<span class="count">({String(PROJECTS.length).padStart(2, "0")})</span>
+	</div>
+
+	<div class="work__list" data-reveal-group>
+		{
+			PROJECTS.map((p) => {
+				// Client and internal work has no public URL. An <a> without href is
+				// not focusable or interactive, so those render as a plain div
+				// instead of a link that looks clickable and does nothing.
+				// The row is a <div> with a stretched overlay anchor rather than being
+				// the <a> itself. The mobile clamp toggle is a <button> that has to
+				// sit inside the row (it is positioned against it), and a button
+				// nested in an anchor is invalid — the link swallows the tap.
+				//
+				// The overlay keeps a real <a>: middle-click, open-in-new-tab and
+				// the status-bar preview all still work, and the whole row is the
+				// click target exactly as before. The toggle sits above it on
+				// z-index so its own taps are not intercepted.
+				return (
+					<div class:list={["row", !p.href && "row--static"]}>
+						{p.href && (
+							<a
+								class="row__link"
+								href={p.href}
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label={p.name}
+							/>
+						)}
+						<span class="row__idx hov-shift">{p.idx}</span>
+						<span class="row__body">
+							<span class="row__name">{p.name}</span>
+							<span class="row__desc" data-desc>{p.desc}</span>
+						</span>
+						<span class="row__stack">{p.stack}</span>
+						<span class="row__meta">
+							<span class:list={["chip", !p.href && "chip--private"]}>{p.kind}</span>
+							{p.href && <span class="arrow hov-shift">↗</span>}
+						</span>
+					</div>
+				);
+			})
+		}
+	</div>
+</section>
+
+<style>
+	.work {
+		padding: clamp(72px, 8vw, 128px) var(--gutter) 0;
+	}
+
+	.work__head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		padding-bottom: clamp(28px, 3vw, 42px);
+	}
+
+	h2 {
+		margin: 0;
+		font: 600 var(--t-label) "JetBrains Mono", monospace;
+		letter-spacing: 0.04em;
+	}
+
+	.count {
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--mut-2);
+	}
+
+	/* No rules between rows — the design separates them with padding and the
+	   hover wash alone. See "Lines are rationed" in CLAUDE.md. */
+
+	/* `start`, not `center`. The descriptions run to a full paragraph now, so
+	   centring left the stack and chip floating mid-row, detached from the
+	   title they belong to. Top-aligned, every column reads off the same line. */
+	/* The meta column is `max-content`, not a fixed width. At 130px the longest
+	   chip ("CLIENT WORK · NOT PUBLIC", ~180px at 10px mono) overflowed its
+	   track and, being `justify-self: end`, spilled leftward across the stack
+	   text. Sizing to content means the track always fits its widest chip. */
+	.row {
+		position: relative;
+		display: grid;
+		grid-template-columns: 76px 1fr minmax(160px, 220px) max-content;
+		align-items: start;
+		gap: clamp(16px, 2vw, 28px);
+		padding: clamp(24px, 2.6vw, 34px) clamp(16px, 1.8vw, 26px);
+		border-radius: 2px;
+		transition: box-shadow 0.2s var(--ease-out), background 0.2s var(--ease-out);
+	}
+	.row:hover {
+		background: var(--faint);
+		box-shadow: var(--wash);
+	}
+	/* Nowhere to go, so no hover affordance and no pointer. */
+	.row--static,
+	.row--static:hover {
+		background: none;
+		box-shadow: none;
+		cursor: default;
+	}
+
+	/* Covers the whole row so the click target is unchanged from when the row
+	   itself was the anchor. Behind the content, so text stays selectable. */
+	.row__link {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		border-radius: inherit;
+	}
+	.row__link:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 4px;
+	}
+
+	.row__idx {
+		font-family: "JetBrains Mono", monospace;
+		font-weight: 500;
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
+		color: var(--mut);
+		padding-left: 4px;
+		/* Nudge onto the title's cap-height; the row is start-aligned and the
+		   mono figures sit higher than the display face's baseline. */
+		padding-top: 6px;
+		transition: color 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+	}
+	/* The index steps aside and the arrow leans out, so the row reads as a
+	   destination rather than a static list item. */
+	.row:hover .row__idx,
+	.row:focus-within .row__idx {
+		color: var(--fg);
+		transform: translateX(4px);
+	}
+
+	.row__body {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	/* Explicit line-height: at 36px the inherited `normal` (~1.2) is looser than
+	   a display size wants, which only shows once a title wraps to two lines. */
+	.row__name {
+		font: 600 var(--t-title-sm) / 1.1 "General Sans", sans-serif;
+		letter-spacing: -0.025em;
+	}
+
+	.row__desc {
+		font: 400 var(--t-body) / 1.55 "General Sans", sans-serif;
+		color: var(--mut);
+		max-width: 58ch;
+	}
+
+	.row__stack {
+		font: 400 var(--t-mono) / 1.75 "JetBrains Mono", monospace;
+		color: var(--mut-2);
+		padding-top: 4px;
+	}
+
+	.row__meta {
+		justify-self: end;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding-top: 2px;
+	}
+
+	.chip {
+		font: 500 var(--t-micro) "JetBrains Mono", monospace;
+		letter-spacing: 0.06em;
+		padding: 5px 11px;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		white-space: nowrap;
+	}
+
+	/* Rows without a public URL. Dashed and muted so "not public" reads as a
+	   state rather than just another category tag — otherwise the missing arrow
+	   and hover wash register as something broken rather than as a fact about
+	   the work. Both tokens are per-theme, so this follows the toggle. */
+	.chip--private {
+		border-style: dashed;
+		color: var(--mut);
+	}
+
+	.arrow {
+		font: 400 var(--t-body) "General Sans", sans-serif;
+		color: var(--mut);
+		transition: color 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+	}
+	.row:hover .arrow,
+	.row:focus-within .arrow {
+		color: var(--fg);
+		transform: translate(3px, -3px);
+	}
+
+	@media (max-width: 1080px) {
+		.row {
+			grid-template-columns: 48px 1fr;
+			row-gap: 14px;
+		}
+		.row__stack {
+			grid-column: 2;
+		}
+		.row__meta {
+			grid-column: 2;
+			justify-self: start;
+		}
+	}
+
+	@media (max-width: 640px) {
+		/* Measured at 360px: the gap *between* rows was 0px while gaps *within* a
+		   row were 8–16px, so four projects read as one unbroken column of grey.
+		   Grouping needs the space around a group to exceed the space inside it.
+		   Desktop gets that separation from the row padding plus the wide columns;
+		   stacked, the padding is all vertical and adjacent rows touch exactly.
+		   Whitespace only — no rule — per "lines are rationed" in CLAUDE.md. */
+		.work__list {
+			display: flex;
+			flex-direction: column;
+			gap: 40px;
+		}
+
+		/* 48px of a 360px screen for a two-digit number squeezed the text column
+		   to 216px (~31 chars/line). 26px returns 22px to the measure. */
+		.row {
+			grid-template-columns: 26px 1fr;
+			padding: 0;
+			gap: 12px;
+		}
+
+
+		.row__idx {
+			padding-left: 0;
+			padding-top: 4px;
+		}
+
+		/* Four lines is enough to judge whether a project is worth opening, and it
+		   holds the section near one viewport instead of two and a half. The full
+		   text is one tap away. */
+		.row__desc {
+			display: -webkit-box;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 4;
+			overflow: hidden;
+		}
+		.row__desc[data-expanded] {
+			-webkit-line-clamp: unset;
+			overflow: visible;
+		}
+
+		/* A flex child of .row__body, directly beneath the description. It sits
+		   above the stretched link on z-index so its own taps are not swallowed
+		   by the row's navigation. */
+		.row__more {
+			position: relative;
+			z-index: 1;
+			align-self: flex-start;
+			padding: 8px 0;
+			min-height: 44px;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			border: 0;
+			background: none;
+			color: var(--fg);
+			cursor: pointer;
+			font: 500 var(--t-micro) "JetBrains Mono", monospace;
+			letter-spacing: 0.1em;
+			text-transform: uppercase;
+			-webkit-tap-highlight-color: transparent;
+		}
+		/* Rotates to point up when expanded — the control states its direction
+		   rather than relying on the label alone. */
+		.row__more::after {
+			content: "↓";
+			display: inline-block;
+			transition: transform 0.2s var(--ease-out);
+		}
+		.row__more[aria-expanded="true"]::after {
+			transform: rotate(180deg);
+		}
+		/* Only shown when the text actually overflows — JS adds this. */
+		.row__more:not([data-live]) {
+			display: none;
+		}
+
+		/* The stack line shared --mut with the description above it, so it did not
+		   separate from the prose. A touch dimmer plus the mono face at a smaller
+		   size makes it read as metadata. */
+		.row__stack {
+			font-size: 10px;
+			opacity: 0.75;
+			padding-top: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.row__more::after {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	// Progressive disclosure for the clamped descriptions, mobile only.
+	//
+	// The button is created here rather than in the markup because rows with a
+	// public URL render as <a>: a <button> nested in an anchor is invalid HTML,
+	// and a tap on it activates the link instead of the disclosure. Inserting it
+	// as a sibling *after* the row keeps both controls independent and keeps the
+	// server-rendered markup valid for no-JS visitors, who simply get the full
+	// text with no toggle.
+	const MOBILE = "(max-width: 640px)";
+	const mq = window.matchMedia(MOBILE);
+	const rows = [...document.querySelectorAll<HTMLElement>(".work .row")];
+
+	/** Buttons keyed by the row they belong to, so setup runs at most once. */
+	const buttons = new Map<HTMLElement, HTMLButtonElement>();
+
+	const build = (row: HTMLElement) => {
+		if (buttons.has(row)) return buttons.get(row)!;
+		const desc = row.querySelector<HTMLElement>("[data-desc]");
+		if (!desc) return null;
+
+		const btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "row__more";
+		// Astro scopes component CSS to a `data-astro-cid-…` attribute stamped on
+		// server-rendered elements. A node built with createElement never gets it,
+		// so every `.row__more` rule silently failed to match and the button
+		// rendered with the UA's default button styling — 21px tall, Arial, no
+		// tap target. Copy the scope from a sibling that has it rather than
+		// hardcoding the hash, which changes whenever the component does.
+		const scoped = [...desc.attributes].find((a) =>
+			a.name.startsWith("data-astro-cid-")
+		);
+		if (scoped) btn.setAttribute(scoped.name, "");
+		btn.setAttribute("aria-expanded", "false");
+		btn.textContent = "More";
+
+		// The clamped text is the thing being controlled, so point at it.
+		if (!desc.id) desc.id = `desc-${Math.random().toString(36).slice(2, 9)}`;
+		btn.setAttribute("aria-controls", desc.id);
+
+		btn.addEventListener("click", () => {
+			const open = desc.hasAttribute("data-expanded");
+			if (open) desc.removeAttribute("data-expanded");
+			else desc.setAttribute("data-expanded", "");
+			btn.setAttribute("aria-expanded", String(!open));
+			btn.textContent = open ? "More" : "Less";
+		});
+
+		// Inside the row, right after the description it controls. Legal because
+		// the row is a <div>; the link is a stretched overlay anchor (.row__link),
+		// so the button is a sibling of that anchor rather than a child of it.
+		desc.insertAdjacentElement("afterend", btn);
+		//
+		// For linked rows this puts a <button> inside the <a>, which is invalid,
+		// so those rows get the button after the anchor's *body* is closed by
+		buttons.set(row, btn);
+		return btn;
+	};
+
+	const sync = () => {
+		rows.forEach((row) => {
+			const desc = row.querySelector<HTMLElement>("[data-desc]");
+			if (!desc) return;
+
+			if (!mq.matches) {
+				// Desktop: no clamp, so the control must not exist at all. Its
+				// styles live inside the mobile media query, so a button left in
+				// the DOM up here renders with the browser's default chrome — a
+				// white box across every row. Remove rather than hide.
+				const btn = buttons.get(row);
+				if (btn) {
+					btn.remove();
+					buttons.delete(row);
+				}
+				desc.removeAttribute("data-expanded");
+				return;
+			}
+
+			const btn = build(row);
+			if (!btn) return;
+
+			// Only offer the toggle where the text is actually cut off. Measured
+			// with the clamp applied and any expansion cleared, or an expanded
+			// row would report no overflow and lose its own control.
+			const wasOpen = desc.hasAttribute("data-expanded");
+			desc.removeAttribute("data-expanded");
+			const clipped = desc.scrollHeight > desc.clientHeight + 2;
+			if (wasOpen) desc.setAttribute("data-expanded", "");
+
+			if (clipped) btn.setAttribute("data-live", "");
+			else {
+				btn.removeAttribute("data-live");
+				desc.removeAttribute("data-expanded");
+			}
+		});
+	};
+
+	// Fonts change the line box, so a measurement taken before they load can
+	// misjudge whether the text overflows.
+	if (document.fonts?.ready) document.fonts.ready.then(sync);
+	sync();
+
+	mq.addEventListener("change", sync);
+
+	let t = 0;
+	window.addEventListener("resize", () => {
+		clearTimeout(t);
+		t = window.setTimeout(sync, 160);
+	});
+</script>

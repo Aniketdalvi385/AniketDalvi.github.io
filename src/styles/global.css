@@ -1,0 +1,457 @@
+/* Weights are trimmed to what the site actually uses — audited across every
+   `font:` shorthand and longhand: General Sans 400/500/600, Clash Display
+   500/600, JetBrains Mono 400/500/600. Nothing anywhere is 700, including
+   `.prose strong`, which is explicitly 600. Each dropped weight is two fewer
+   font files to fetch on the critical path.
+   The preconnect hints for these two hosts live in Base.astro's <head> — they
+   must be there, not here, because a hint discovered inside a stylesheet has
+   already lost the round trip it was meant to save. */
+@import url("https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&f[]=clash-display@500,600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+/* ==========================================================================
+   Design tokens
+   Light is the bare :root palette. Dark is redefined twice: once under
+   prefers-color-scheme (guarded so an explicit light choice still wins), and
+   once under [data-theme="dark"] so the toggle wins in both directions.
+   ========================================================================== */
+:root {
+	--bg: #fbfaf8;
+	--fg: #0f0e0c;
+	/* 4.99:1 on --bg. The lighter #7c766c this replaced measured 4.32:1, under
+	   the 4.5:1 floor for body text — and this carries most secondary copy. */
+	--mut: #726c61;
+	/* Second de-emphasis step, for 10-12px metadata: eyebrows, dates, tags,
+	   stack lines. One grey was previously doing both jobs across 150 elements,
+	   so body prose and an 11px label carried identical visual weight. Lighter
+	   than --mut but still 3.4:1, which clears the 3:1 floor that applies to
+	   incidental small caps rather than body text. */
+	--mut-2: #8d867a;
+	--line: rgba(0, 0, 0, 0.12);
+	--card: #f1efe9;
+	--faint: rgba(0, 0, 0, 0.04);
+	/* Darker than the dark-theme accent so focus rings clear 3:1 on a light
+	   ground (the original #3fae6b measured 2.69:1). */
+	--accent: #2f9459;
+	/* Form validation. 4.73:1 on --card, which is where it actually renders.
+	   Needs a per-theme value: this red measures only 3.38:1 on the dark card. */
+	--err: #c0392b;
+	/* Shadow ink, warm-tinted rather than pure black — the page ground is a warm
+	   #fbfaf8, and neutral-black shadows over it read faintly cold. Two steps
+	   cover every use: --sh for the inset hover washes, --sh-lift for the one
+	   cast shadow (the metrics slab). */
+	--sh: rgba(20, 15, 10, 0.32);
+	--sh-lift: rgba(20, 15, 10, 0.55);
+	/* The hover wash, as two steps rather than the four hand-tuned variants that
+	   had accumulated (3px/11px, 4px/16px, 5px/20px, 6px/24px). Nobody can tell a
+	   1px offset difference apart; four of them just meant the same effect was
+	   re-specified in every component. --wash for rows and chips, --wash-lg for
+	   the full-bleed blocks (.over, .back) where the taller box needs more throw. */
+	--wash: inset 0 4px 16px -6px var(--sh);
+	--wash-lg: inset 0 6px 22px -7px var(--sh);
+
+	/* Inverted slab used by the metrics panel */
+	--panel: #141310;
+	--panelfg: #faf8f4;
+	--panelline: rgba(250, 248, 244, 0.16);
+
+	--sel: #0f0e0c;
+	--sel-fg: #fbfaf8;
+
+	--maxw: 1280px;
+	/* Content inset, measured from the viewport edge. The only horizontal inset
+	   left — the tickers run full-bleed and nothing else frames the page. */
+	--gutter: clamp(40px, 9vw, 140px);
+
+	/* Type scale. Body steps climb ~1.2×, display steps ~1.33×, each fluid
+	   between a phone and a large desktop. Components pick a step rather than
+	   inventing a ramp, so sizes stay related across sections. */
+	/* Ten steps, each clearly distinguishable from its neighbours. This was
+	   eighteen tokens, six of which were display sizes that overlapped into
+	   effectively one: at 1440px --t-display (115px), --t-display-lg (118px) and
+	   --t-display-2xl (124px) landed within 9px of each other, and eight tokens
+	   were used exactly once. Sizes 3px apart at display scale read as
+	   inconsistency rather than hierarchy.
+	   Removed: --t-body-sm, --t-title, --t-title-lg, --t-display-lg,
+	   --t-display-2xl. Their consumers were remapped to the nearest surviving
+	   step, which in every case was within a few px of the original. */
+	--t-micro: 10px; /* pill/label caps */
+	--t-mono: 11px; /* eyebrows, metadata */
+	--t-mono-lg: 12px; /* dates, counters */
+	--t-label: clamp(13px, 1.1vw, 15px); /* SECTION HEADINGS, mono */
+	/* Ceiling raised 16 -> 17. This is a reading-heavy site and the old token
+	   resolved to 15.8px at 1440px, under the 16px floor for body copy. */
+	--t-body: clamp(15px, 1.15vw, 17px);
+	--t-body-lg: clamp(17px, 1.4vw, 21px);
+	--t-lede: clamp(20px, 2.1vw, 30px);
+	--t-title-sm: clamp(24px, 2.6vw, 36px);
+	--t-display-sm: clamp(30px, 4.4vw, 64px);
+	--t-display-md: clamp(46px, 5.6vw, 104px); /* metrics figures */
+	--t-display: clamp(52px, 8.2vw, 124px);
+	--t-display-xl: clamp(60px, 14vw, 220px);
+	--t-counter: clamp(78px, 21vw, 300px); /* preloader count-up */
+
+	/* Motion. Three curves cover the whole site:
+	   --ease-out    the standard out-curve for pointer feedback and reveals.
+	   --ease-veil   a symmetric ease-in-out, correct for full-page transitions
+	                 (the veils and the loader wipe) where the element travels
+	                 across the viewport rather than responding to a pointer.
+	   --ease-spring a single deliberate overshoot, used only by .send on hover.
+	   Durations are deliberately NOT tokenised: they are per-component decisions
+	   documented in CLAUDE.md's motion budget, not a scale. */
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-veil: cubic-bezier(0.76, 0, 0.24, 1);
+	--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #0c0b0a;
+		--fg: #f4f2ec;
+		--mut: #8b857a;
+		/* Dimmer companion, per the light theme note. 3.2:1 on --bg. */
+		--mut-2: #6f6a60;
+		--line: rgba(255, 255, 255, 0.14);
+		--card: #16140f;
+		--faint: rgba(255, 255, 255, 0.045);
+		--accent: #4cc47c;
+		/* Lifted well off the light-theme red: 6.06:1 on the dark --card. */
+		--err: #e8705f;
+		--panel: #f4f2ec;
+		--panelfg: #0c0b0a;
+		--panelline: rgba(12, 11, 10, 0.14);
+		--sel: #f4f2ec;
+		--sel-fg: #0c0b0a;
+	}
+}
+
+/* The gutter's 40px floor was tuned against desktop, where the 9vw term does the
+   work and the floor never engages. On a phone it does: at 320px it takes 80px
+   of 340 — 24% of the viewport — leaving a 240px column that broke the hero
+   headline onto a fourth line. 24px keeps a comfortable edge margin and returns
+   32px to the measure. Overridden here rather than in the base token so the
+   desktop ramp is untouched. */
+@media (max-width: 640px) {
+	:root {
+		--gutter: 24px;
+	}
+}
+
+:root[data-theme="dark"] {
+	--bg: #0c0b0a;
+	--fg: #f4f2ec;
+	--mut: #8b857a;
+	--mut-2: #6f6a60;
+	--line: rgba(255, 255, 255, 0.14);
+	--card: #16140f;
+	--faint: rgba(255, 255, 255, 0.045);
+	--accent: #4cc47c;
+	--err: #e8705f;
+	--panel: #f4f2ec;
+	--panelfg: #0c0b0a;
+	--panelline: rgba(12, 11, 10, 0.14);
+	--sel: #f4f2ec;
+	--sel-fg: #0c0b0a;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+
+/* Clip horizontal bleed on <html>, not <body>. Setting overflow-x on body makes
+   body the scroll container, which silently breaks scrollIntoView({behavior:
+   "smooth"}) for the nav links. */
+html {
+	overflow-x: hidden;
+}
+
+body {
+	background: var(--bg);
+	color: var(--fg);
+	font-family: "General Sans", system-ui, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	min-height: 100vh;
+	transition: background 0.5s ease, color 0.5s ease;
+}
+
+::selection {
+	background: var(--sel);
+	color: var(--sel-fg);
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+/* Headings set at display sizes strand single words on the last line; balance
+   evens the rag. Applied globally so every heading inherits the same care. */
+h1,
+h2,
+h3 {
+	text-wrap: balance;
+}
+
+/* Long-form paragraphs read better without a one-word last line. */
+p {
+	text-wrap: pretty;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 3px;
+}
+
+/* Focus feedback is a direct response to a click or Tab, and a keyboard user
+   hits it on every field. 0.3s `ease` sat at the ceiling for UI motion on the
+   curve whose slow start delays the exact frame being watched. */
+input,
+textarea {
+	transition: border-color 0.15s var(--ease-out);
+}
+
+::placeholder {
+	color: var(--mut);
+	opacity: 0.7;
+}
+
+/* ==========================================================================
+   Shared chrome
+   ========================================================================== */
+
+/* Paper grain. A fixed fractal-noise tile that keeps the large flat fields from
+   reading as dead ink. It multiplies into the warm paper on light and screens
+   back out on dark, so it reads as texture in both rather than as dirt in one.
+   z-index 1 deliberately sits under the nav (50) and every overlay. */
+.grain {
+	position: fixed;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
+	mix-blend-mode: multiply;
+	opacity: 0.05;
+	background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22180%22%20height%3D%22180%22%3E%3Cfilter%20id%3D%22n%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%220.85%22%20numOctaves%3D%223%22%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%22180%22%20height%3D%22180%22%20filter%3D%22url%28%23n%29%22%2F%3E%3C%2Fsvg%3E");
+	background-size: 180px 180px;
+}
+
+/* Dark defined twice, same as the colour tokens, so an explicit light choice
+   still wins against a dark OS preference. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) .grain {
+		mix-blend-mode: screen;
+		opacity: 0.045;
+	}
+}
+:root[data-theme="dark"] .grain {
+	mix-blend-mode: screen;
+	opacity: 0.045;
+}
+
+/* Full width, scaled from the left, rather than a growing `width`. Animating
+   width triggers layout and paint on every frame; this bar is rewritten on every
+   scroll tick of every page (including a ~30,000px article), so it was the most
+   frequently hit non-GPU animation on the site — measured 0.011ms per write
+   against 0.002ms for the scaleX equivalent. */
+#progress {
+	position: fixed;
+	top: 0;
+	left: 0;
+	height: 2px;
+	width: 100%;
+	transform: scaleX(0);
+	transform-origin: left;
+	background: var(--fg);
+	z-index: 60;
+	transition: transform 0.08s linear;
+}
+
+/* Anchor targets clear the fixed nav when scrolled to. Replaces the design's
+   manual `rect.top + scrollY - 68` maths. */
+:where(section, [id]) {
+	scroll-margin-top: 68px;
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+@keyframes mq {
+	to {
+		transform: translateX(-50%);
+	}
+}
+
+@keyframes blink {
+	50% {
+		opacity: 0.25;
+	}
+}
+
+[data-reveal] {
+	opacity: 0;
+	transform: translateY(24px);
+	transition: opacity 0.8s var(--ease-out),
+		transform 0.8s var(--ease-out);
+}
+[data-reveal].in {
+	opacity: 1;
+	transform: none;
+}
+
+/* Grouped reveal: the container is observed as one unit and its direct children
+   arrive in sequence behind it. One orchestrated entrance per section reads as
+   composed, where the same elements revealing independently reads as scattered.
+   Children are indexed in JS via --i. */
+/* Children often carry their own hover transitions in component-scoped rules,
+   whose `[data-astro-cid-…]` selectors outrank a bare descendant selector and
+   would clobber the transition set here. Drive the stagger with an animation
+   instead: `animation` and `transition` are separate properties, so a child's
+   hover transition and this entrance can coexist without either resetting the
+   other. */
+[data-reveal-group] > * {
+	opacity: 0;
+}
+[data-reveal-group].in > * {
+	animation: reveal-in 0.7s var(--ease-out) forwards;
+	animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+@keyframes reveal-in {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+	[data-reveal],
+	[data-reveal-group] > *,
+	[data-reveal-group].in > * {
+		opacity: 1;
+		transform: none;
+		transition: none;
+		animation: none;
+	}
+	.ticker__track {
+		animation: none !important;
+	}
+
+	/* Suppress hover/focus *movement* only. Colour and shadow fades still read as
+	   feedback and are fine here. The veil and loader wipes are deliberately not
+	   touched — they are already gated in JS, and neutralising their transform
+	   would strand each mid-transition. */
+	.hov-lift:hover,
+	.hov-lift:focus-visible,
+	:is(a, button):hover .hov-shift,
+	:is(a, button):focus-visible .hov-shift {
+		transform: none !important;
+	}
+}
+
+/* On a touch device there is no pointer to leave, so :hover latches on tap and
+   the element stays lit until you tap elsewhere — it reads as a stuck selection.
+   `!important` is load-bearing here: component hover rules are scoped as
+   `.row[data-astro-cid-…]:hover`, which ties this rule's specificity and wins on
+   source order, so an unflagged override silently does nothing. :focus styles
+   are untouched, keeping keyboard and screen-reader feedback intact. */
+/* `pointer: fine` as well as `hover: hover`: a stylus or hybrid laptop reports
+   hover support alongside a coarse pointer, and still latches the state on tap. */
+@media not all and (hover: hover) and (pointer: fine) {
+	/* Elements whose resting state is unpainted. background-color longhand, not
+	   the `background` shorthand: the minifier compiles `background: transparent`
+	   down to `background: 0px 0px`, reading it as a position and dropping the
+	   colour entirely. */
+	:is(.row, .chip, .feat, .over, .again):hover {
+		background-color: transparent !important;
+		box-shadow: none !important;
+		transform: none !important;
+	}
+	/* These carry a base fill, so only the hover payload is cancelled — resetting
+	   background wholesale above would strip the slab off each. */
+	.back:hover {
+		background-color: var(--card) !important;
+		box-shadow: none !important;
+	}
+	.send:hover {
+		background-color: var(--fg) !important;
+		transform: none !important;
+		opacity: 1 !important;
+	}
+	/* The scribble underline. Gating this matters more than the other resets:
+	   a tap latches :hover, so without it the pen draws and stays drawn until
+	   the visitor taps elsewhere. Holds the stroke fully hidden instead. */
+	.mailto:hover .scribble path {
+		stroke-dashoffset: 320 !important;
+		transition: none !important;
+	}
+	.row:hover :is(.row__idx, .arrow) {
+		color: var(--mut) !important;
+		transform: none !important;
+	}
+
+	/* Cancelling the latched hover states above leaves touch with no feedback at
+	   all — a tap on a work row looked identical to a tap on dead space. :active
+	   is the touch equivalent: it paints while the finger is down and clears the
+	   moment it lifts, so it cannot latch the way :hover does.
+	   `!important` for the same reason as the resets — these compete with the
+	   component-scoped `.row[data-astro-cid-…]:hover` rules on source order. */
+	:is(.row, .chip, .over, .again, .feat):active {
+		background-color: var(--faint) !important;
+	}
+	/* Scale rather than a fill for the two that already carry one. Kept small:
+	   a press is confirmation, not an event. */
+	.send:active {
+		transform: scale(0.97) !important;
+	}
+	.back:active {
+		background-color: var(--card) !important;
+		transform: scale(0.99) !important;
+	}
+	/* The index and arrow move on press, restoring the "this is a destination"
+	   cue the hover rule gave desktop. Overrides the reset directly above, so it
+	   must follow it. */
+	.row:active :is(.row__idx, .arrow) {
+		color: var(--fg) !important;
+	}
+	.row:active .row__idx {
+		transform: translateX(4px) !important;
+	}
+	.row:active .arrow {
+		transform: translate(3px, -3px) !important;
+	}
+
+	/* Feedback needs to be immediate on press and unhurried on release: an
+	   equal-time fade back reads as the tap not having registered. */
+	:is(.row, .chip, .over, .again, .feat, .send, .back) {
+		transition-duration: 0.24s;
+	}
+	:is(.row, .chip, .over, .again, .feat, .send, .back):active {
+		transition-duration: 0.06s !important;
+	}
+
+	/* iOS paints its own translucent grey box over any element with a tap
+	   binding, which fires before and washes out everything above. */
+	a,
+	button,
+	summary,
+	[role="button"] {
+		-webkit-tap-highlight-color: transparent;
+	}
+}

@@ -1,0 +1,161 @@
+---
+// Two-column hero: display headline left, monogram + positioning statement right.
+import Monogram from "./Monogram.astro";
+---
+
+<section id="top" class="hero">
+	<div class="hero__grid">
+		<div class="hero__lead" data-reveal>
+			<div class="eyebrow">APPLIED AI ENGINEER · FULL-STACK · LLM SYSTEMS</div>
+			<h1>I build<br />systems,<br />not demos.</h1>
+			<div class="hero__status">
+				<span class="pulse" aria-hidden="true"></span>
+				AVAILABLE FOR WORK · MUMBAI · REMOTE
+			</div>
+		</div>
+
+		<div class="hero__aside" data-reveal>
+			<Monogram />
+			<div class="hero__copy">
+				<p>
+					Nearly three years shipping full-stack platforms, LLM systems, and
+					internal automation. Architecture, implementation, testing, deployment.
+				</p>
+				<div class="eyebrow">SCROLL FOR THE NUMBERS ↓</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<style>
+	.hero {
+		padding: 68px var(--gutter) 0;
+	}
+
+	/* Unruled: the two columns are separated by the gap and their differing type
+	   sizes, not by a drawn line. */
+	.hero__grid {
+		display: grid;
+		grid-template-columns: 1.15fr 0.85fr;
+		/* Deliberately generous: the hero is meant to feel expansive, and the
+		   space below the headline is the design's intent, not slack. */
+		min-height: calc(100vh - 150px);
+	}
+
+	.hero__lead {
+		padding: 24px 0 64px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.eyebrow {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut-2);
+	}
+
+	/* Hold the eyebrow on one line where it fits; wrap rather than overflow
+	   once the viewport is too narrow for it. */
+	.hero__lead .eyebrow {
+		white-space: nowrap;
+	}
+	@media (max-width: 620px) {
+		.hero__lead .eyebrow {
+			white-space: normal;
+		}
+	}
+
+	.hero__lead .eyebrow {
+		margin-bottom: clamp(20px, 3vw, 34px);
+	}
+
+	h1 {
+		margin: 0;
+		font: 600 var(--t-display) / 0.92 "General Sans", sans-serif;
+		letter-spacing: -0.038em;
+	}
+
+	.hero__status {
+		margin-top: clamp(26px, 3.5vw, 44px);
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--mut);
+	}
+
+	.pulse {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		/* Token, not a literal — otherwise the dot keeps the light-theme green on
+		   a dark ground and drifts from the focus-ring colour. */
+		background: var(--accent);
+		box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+		flex: none;
+	}
+
+	/* The monogram takes the top of the column — previously empty space — and
+	   the copy stays anchored to the bottom, so the two ends of the aside line
+	   up with the headline block opposite. */
+	.hero__aside {
+		padding: clamp(56px, 7vw, 108px) 0 64px clamp(28px, 3vw, 52px);
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: clamp(32px, 4vw, 56px);
+	}
+
+	.hero__copy {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.hero__aside p {
+		margin: 0 0 clamp(30px, 4vw, 48px);
+		font: 400 var(--t-body-lg) / 1.55 "General Sans", sans-serif;
+		max-width: 40ch;
+	}
+
+	@media (max-width: 900px) {
+		.hero__grid {
+			grid-template-columns: 1fr;
+			min-height: 0;
+		}
+		.hero__aside {
+			padding: 32px 0 48px;
+		}
+	}
+
+	/* Phone. Measured at 320/360/390/430: the section came to ~1.14× the
+	   viewport — just too tall to resolve on one screen, so "SCROLL FOR THE
+	   NUMBERS ↓" sat below the fold on every width. The cue announcing the
+	   scroll was only reachable by scrolling. These reclaim that height. */
+	@media (max-width: 640px) {
+		.hero {
+			padding-top: 48px;
+		}
+
+		/* 0.92 and -0.038em are display-size values: they flatter the 124px
+		   desktop setting and crowd the 52px floor, where three stacked lines
+		   nearly touch. Both ease off as the size drops. */
+		h1 {
+			line-height: 1;
+			letter-spacing: -0.02em;
+		}
+
+		.hero__lead {
+			padding: 16px 0 40px;
+		}
+
+		.hero__aside {
+			padding: 8px 0 40px;
+			gap: 28px;
+		}
+
+		.hero__aside p {
+			margin-bottom: 22px;
+		}
+	}
+</style>

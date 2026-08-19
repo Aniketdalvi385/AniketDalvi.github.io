@@ -1,0 +1,102 @@
+---
+title: "I Built an AI Git Tool. Then I Measured the AI and Took Most of It Out."
+subtitle: "Set out to build a tool with an LLM at its core. Finished having proven the model was the weakest part of it, and that this was the most useful thing the project produced."
+date: "2026 · 08"
+published: 2026-08-11
+read: "6 MIN"
+tag: "LLM"
+kind: "post"
+featured: false
+order: 1
+eyebrow: "Blog · Building With Local LLMs · 2026"
+---
+
+<section class="lede">
+
+Everyone who's used Git for a while has a horror story. A colleague runs `git reset --hard` on the wrong directory and watches an afternoon of work vanish. Someone force-pushes over a teammate's commit. A junior dev is *certain* they committed something, and now it's nowhere. Git's sharpest edges come out exactly when people are stressed and moving fast, which is to say, exactly when they'll cut themselves.
+
+So I built a tool for that: [GiTrust](https://github.com/Aniketdalvi385/gitrust), a command-line assistant that lets you talk to Git in plain English ("push the login changes," "undo my last commit but keep the files") and wraps the dangerous operations in guardrails. Two rules made it interesting rather than routine. It had to run **locally**, because a Git tool reads your code and plenty of people can't ship their diffs to a hosted API. And it had to run on a **normal laptop**: mine, an 8&nbsp;GB MacBook.
+
+That second constraint turned out to be the whole story.
+
+</section>
+
+## It worked. For exactly one way of saying each thing.
+
+The first version did what the demo promised. "Commit everything" worked. "Push my changes" worked. Then I started saying things slightly differently, the way a real person would, and it fell apart.
+
+"Save my changes" got read as *stage the files but don't commit them.* "Push all the docs changes" pushed everything, docs and code alike. "Combine the last three commits" tried to undo a single commit. Same intent, different words, wrong answer. The tool had memorized the exact phrasings I'd hard-coded and was helpless the moment anyone strayed from them.
+
+The tempting fix was obvious: add more phrasings, more rules, more examples in the prompt. I started down that road and stopped, because it solves the wrong problem. **Every rule you add just moves the cliff.** It makes the tool work for the words *you* anticipated and leaves it helpless for the next person who phrases it their own way. I'd be forcing users to be rigid to accommodate a tool that couldn't adapt, which is exactly backwards.
+
+## So I stopped guessing and measured.
+
+Instead of adding a twelfth rule, I built an evaluation harness and pointed it at the local model. The number came back:
+
+<div class="bignum"><div class="n">41%</div></div>
+
+On phrasings that weren't trivial exact matches, my supposedly-intelligent core was right *41% of the time.* Sobering, but not the part that changed my mind. The part that changed my mind was in the safety cases: the model took "throw away my changes" and cheerfully routed it to a destructive reset. Not "are you sure?", just *do the dangerous thing.* A tool I'd built to protect people from Git's sharp edges was, at its core, occasionally handing them the knife.
+
+Then I tried the alternative I'd been quietly hoping would save me: instead of asking the model to *reason* about the request, embed it and match it to the nearest known example, pure similarity. Same model, no extra memory. It scored **64%** and ran about **35× faster.** A real win.
+
+Except it had its own dangerous failure: it routed "undo the last three commits" to *squash*, which would silently rewrite three commits into one. Neither engine was safe on its own. One was slow and unreliable; the other was fast and unreliable in a different, scarier direction.
+
+<div class="aside">
+
+The full methodology, the numbers by category, and why neither engine can be trusted alone are in the [research paper](/writing/when-the-llm-is-the-weak-link).
+
+</div>
+
+## An aside: the machine lied to me three times.
+
+The part I'm least proud of and find most useful to share: before I trusted any of those numbers, I got fooled by fake ones. Three separate times, a benchmarking bug produced a result that looked like a *finding* and was actually a misconfiguration, an empty response scored as 0%, a truncated prompt that tanked every score. On constrained hardware, benchmarking bugs don't show up as errors. They show up as *interesting results.* The only thing that saved me was keeping one number I already trusted in every run and disbelieving anything that moved it.
+
+<div class="aside">
+
+I wrote up all three bugs as a cautionary tale in the paper's [Threats to Validity](/writing/when-the-llm-is-the-weak-link) section, because the honest autopsy is worth more than the clean numbers.
+
+</div>
+
+## The fix wasn't a smarter model. It was less model.
+
+So I went looking for a better local model, and the 8&nbsp;GB laptop delivered its final verdict. The realistic next step up, a 4B model, needs enough context to hold my tool's instructions. At that context, on that machine, it didn't just run slowly. **It crashed my laptop.** The upgrade I was counting on wasn't slow or expensive; it was *unavailable.*
+
+That's when it clicked. If the model can't get smarter, the intelligence has to live somewhere else. So I inverted the design: cheap, reliable, deterministic layers up front, with the model demoted to a fallback for genuine novelty, and every destructive decision owned by testable code the model never touches. The result was *more* robust to how people actually talk, dramatically faster, and safe by construction on exactly the operations where I'd measured the model couldn't be trusted.
+
+<div class="aside">
+
+The reusable version of that architecture, tiering, routing without deciding, and abstaining rather than guessing, is written up as a pattern in the [case study](/writing/deterministic-first).
+
+</div>
+
+## What I actually learned
+
+I set out to build a tool whose intelligence was a language model. I finished having proven, with numbers, that the language model was the weakest component in it, and that this was the most useful thing the project produced.
+
+The lesson isn't "local models are bad." Mine does real work, in the two places it's genuinely the right tool. The lesson is that in a moment when "just add an LLM" is the reflexive answer to everything, whether the model is actually good at *your* job, on *your* hardware, is a question with an answer, and you only get it by going and measuring. When the answer comes back "not good enough," the move isn't always to wait for a better model. Sometimes it's to build the intelligence *around* the model instead.
+
+On a small machine especially, the scaffolding might be the product.
+
+<div class="companion">
+<p class="eyebrow">/ Go deeper</p>
+<div class="comp-grid">
+	<a class="comp-card plain" href="/writing/deterministic-first">
+		<div class="k">Case study</div>
+		<div class="t">Deterministic-First</div>
+		<div class="d">The architecture as a reusable pattern you can apply to your own tool.</div>
+		<div class="go">Read the pattern →</div>
+	</a>
+	<a class="comp-card plain" href="/writing/when-the-llm-is-the-weak-link">
+		<div class="k">Research paper</div>
+		<div class="t">When the LLM Is the Weak Link</div>
+		<div class="d">The full measurement, the numbers by category, the model-swap study, and the three benchmarking bugs in detail.</div>
+		<div class="go">Read the proof →</div>
+	</a>
+	<a class="comp-card plain" href="https://github.com/Aniketdalvi385/gitrust" target="_blank" rel="noopener">
+		<div class="k">Source</div>
+		<div class="t">GiTrust on GitHub</div>
+		<div class="d">The tool itself, Rust, open source.</div>
+		<div class="go">View the repo ↗</div>
+	</a>
+</div>
+</div>

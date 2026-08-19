@@ -1,0 +1,114 @@
+---
+title: "Deterministic‑First"
+subtitle: "An architecture pattern for unreliable local models"
+date: "2026 · 08"
+published: 2026-08-14
+read: "9 MIN"
+tag: "ARCHITECTURE"
+kind: "paper"
+featured: false
+order: 2
+eyebrow: "Case Study · Architecture Pattern · 2026"
+---
+
+<section class="lede">
+
+Most writing about LLM-backed tools assumes the model is the smart part and the code around it is plumbing. Building [GiTrust](https://github.com/Aniketdalvi385/gitrust), a natural-language Git CLI that runs its model locally on an 8&nbsp;GB laptop, taught me the opposite. This piece is the pattern that came out of it, stated so you can apply it to your own tool. The *measurements* that forced the pattern, the eval, the accuracy numbers, the model-swap study, live in the [research paper](/writing/when-the-llm-is-the-weak-link); here I take the finding as given and focus on the design.
+
+</section>
+
+## The problem shape
+
+The pattern applies whenever three things are true at once:
+
+<ol>
+<li><span class="b"></span><span>**You're building on an unreliable model.** Small, local, quantized, cost-capped, whatever the reason, the model is wrong often enough that you can't treat its output as correct. (In GiTrust's case, measurably so, the paper has the number.)</span></li>
+<li><span class="b"></span><span>**Some of the actions are safety-critical.** A wrong *read* is a shrug; a wrong *destructive action* costs the user something they can't get back. That asymmetry is the whole problem, you can't just "mostly work."</span></li>
+<li><span class="b"></span><span>**The action space is closed and known.** You have a finite set of operations the tool can perform. This is what makes the pattern possible; open-ended generation is a different game.</span></li>
+</ol>
+
+Git is a sharp example, but the shape is common: an internal tool that runs privileged operations, an agent that can spend money or send messages, anything where "the model misunderstood" becomes a consequence rather than a retry.
+
+## The anti-pattern (what I did first)
+
+The intuitive design is *LLM-at-the-core*: the model reads the request, decides what to do, and the code executes it. When paraphrases start misrouting (and they will) the reflex is to patch, add more examples to the prompt, more `IMPORTANT:` instructions, more regex rules for the phrasings that broke.
+
+This does not scale, and the reason is worth internalizing: **enumerating phrasings makes the *user* rigid.** Every rule you add covers the exact input you thought of and nothing else. The user who says it a way you didn't predict falls straight through to the unreliable model you were trying to work around. You aren't fixing the weakness; you're building an ever-taller pile of patches on top of it, and the prompt's forty `IMPORTANT:` lines are the same anti-pattern wearing a different hat.
+
+## The pattern, in three moves
+
+### <span class="mnum">01</span>Tier by cost and confidence
+
+Don't run the expensive, unreliable engine first. Stack your classifiers cheapest-first and let each one **abstain upward** when it isn't sure:
+
+```
+request → exact match → cheap semantic (embeddings) → the model (fallback)
+             │                  │                          │
+          instant           ~fast, no                 slow, unreliable,
+          certain           extra cost                 but handles novelty
+```
+
+Most requests resolve before they ever reach the model. In GiTrust an exact-phrase table handles the common canonical commands instantly; an embedding router handles paraphrases by nearest-example similarity; and the LLM is reached only when both abstain.
+
+The embedding router is worth one design note, because it's the move that made tiering *free*: instead of loading a second, dedicated embedding model (unaffordable in my memory budget), I reused the generation model that was already resident, asking it for embeddings through the same local runtime. No second model, no extra memory. The constraint that looked like a limitation became the thing that made the middle tier deployable at all. The model went from "the brain" to "the fallback for genuine novelty," and the tool got *more* robust to phrasing, not less.
+
+### <span class="mnum">02</span>The model routes; it never decides
+
+This is the load-bearing move. The model's output should select *which deterministic policy runs*, never *what irreversible thing happens.*
+
+Concretely: when a user says "undo my last commit," the model's entire job is to recognize this as undo-family language and hand off to a single `UndoIntent`. It does **not** choose whether that means keep-the-changes-staged, keep-them-in-files, make-an-inverse-commit, or discard-everything. A deterministic gate presents those four options with their consequences spelled out and requires an explicit confirmation before anything irreversible. The model gets the user *to* the decision point; plain, testable code owns the decision itself.
+
+Why this matters is the sharpest single result from the measurement (detailed in the [paper](/writing/when-the-llm-is-the-weak-link)): the model happily routes "throw away my changes" straight to a destructive reset. Because of this rule, that misclassification is a *finding in a report* rather than a user's lost work. Destructive phrasings never reach the model as a free choice at all. If you take one thing from this pattern, take this move: the unreliable component proposes; testable code disposes.
+
+### <span class="mnum">03</span>Abstain, never guess
+
+Every layer's failure mode should be to *hand off to a more capable layer*, never to take a wrong action. Safe degradation is a property you design in, not a behavior you hope for.
+
+Two design tics make this real. First, rank on **confidence signals you can trust**, not raw model scores. My embedding router ranks by the *margin* between its top two candidates rather than absolute similarity, which stays deceptively high even for nonsense, and abstains below a calibrated margin. Second, plant **decoys**: keep out-of-scope example phrasings in the router on purpose, so that nonsense lands near them and *abstains* instead of confidently matching a real operation. When "what time is it" arrives, I want it to fall through to a layer that can say "that's not a Git request," not get routed to `git branch` because it happened to embed near "what branch am I on." (I learned this one the hard way, from a regression the eval caught; the story is in the paper.)
+
+## When to reach for this, and when not to
+
+**Reach for it** when the three conditions hold: unreliable model, safety-critical actions, closed action set. The ceremony pays for itself the first time it turns a misclassification into a harmless abstain instead of a destructive action.
+
+**Skip it** when the stakes are low (a wrong answer is a cheap retry, not a loss) or when you have a strong enough model that the reliability tax isn't worth paying. This is not a universal architecture; it's the right answer to a specific, common, high-stakes situation.
+
+## The honest cost
+
+This pattern is more work, and it makes the model do *less*. You write and test the tiers, the gates, the abstain logic, the decoys. In exchange you get robustness to phrasings you never enumerated and safety on exactly the operations where the model is least trustworthy.
+
+The surprising part, the thing I didn't expect going in, is *which* part turned out to be load-bearing. It wasn't the model, and it wasn't even the clever embedding trick. It was the deterministic gates: the plain, testable code that owns every decision the model isn't allowed to make. In a project I started because I wanted to put an LLM at the center, the most valuable component is the scaffolding that keeps the LLM away from the controls.
+
+<div class="takeaways">
+<p class="eyebrow">/ Takeaways</p>
+<ul>
+<li><span class="b">→</span><span>**Tier your classifiers cheapest-first; abstain upward.** Most requests shouldn't reach the unreliable model at all.</span></li>
+<li><span class="b">→</span><span>**Let the model route, not decide.** Its output picks a deterministic policy; it never triggers an irreversible action directly.</span></li>
+<li><span class="b">→</span><span>**Abstain beats guess.** Every layer degrades to a more capable one, never to a wrong action.</span></li>
+<li><span class="b">→</span><span>**Rank on trustworthy signals** (margins, not raw scores) and **plant decoys** so out-of-scope input abstains instead of matching.</span></li>
+<li><span class="b">→</span><span>**Measure the model before you trust it.** The whole pattern is a response to a number, and the number is only knowable if you go get it.</span></li>
+</ul>
+</div>
+
+<div class="companion">
+<p class="eyebrow">/ Go deeper</p>
+<div class="comp-grid">
+	<a class="comp-card plain" href="/writing/when-the-llm-is-the-weak-link">
+		<div class="k">Research paper</div>
+		<div class="t">When the LLM Is the Weak Link</div>
+		<div class="d">The measurement that forced this pattern: the eval, the numbers by category, the model-swap study, and the benchmarking bugs.</div>
+		<div class="go">Read the proof →</div>
+	</a>
+	<a class="comp-card plain" href="/writing/i-measured-the-ai-and-took-most-of-it-out">
+		<div class="k">Blog</div>
+		<div class="t">I Measured the AI and Took Most of It Out</div>
+		<div class="d">The short version of how this project unfolded, for a broad audience.</div>
+		<div class="go">Read the story →</div>
+	</a>
+	<a class="comp-card plain" href="https://github.com/Aniketdalvi385/gitrust" target="_blank" rel="noopener">
+		<div class="k">Source</div>
+		<div class="t">GiTrust on GitHub</div>
+		<div class="d">The tool itself, Rust, open source.</div>
+		<div class="go">View the repo ↗</div>
+	</a>
+</div>
+</div>

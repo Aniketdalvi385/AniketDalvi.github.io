@@ -1,0 +1,170 @@
+---
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import ThemeScript from "../components/ThemeScript.astro";
+import Preloader from "../components/Preloader.astro";
+import { SITE } from "../data/site";
+
+interface Props {
+	title?: string;
+	description?: string;
+	/** Homepage renders anchor nav; sub-pages link back to "/". */
+	homeHref?: string;
+}
+
+const {
+	title = SITE.title,
+	description = SITE.description,
+	homeHref = "/",
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		{/*
+		  Fonts come from two third-party hosts via @import in global.css, so the
+		  DNS lookup + TCP + TLS for each was only starting once that stylesheet
+		  had downloaded and parsed — a serialised chain before a single glyph was
+		  requested. Measured at 150ms latency: both stylesheets began at 178ms
+		  and the fonts they reference could not start until after that.
+
+		  These hints go as early in <head> as possible so the handshakes run in
+		  parallel with the HTML parse. gstatic (not googleapis) is where Google's
+		  actual font files live, hence both. `crossorigin` is required — fonts are
+		  fetched in CORS mode, and a preconnect without it opens a connection the
+		  font request cannot reuse.
+		*/}
+		<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta name="twitter:card" content="summary_large_image" />
+
+		<ThemeScript />
+	</head>
+
+	<body>
+		{/* Site-wide, not homepage-only. ThemeScript decides whether to run it and
+		    locks scrolling from the first frame on *every* route, so a page
+		    without this markup had nothing to release the lock — deep-linking to
+		    an article in a fresh session left it permanently unscrollable. */}
+		<Preloader />
+
+		<div id="progress"></div>
+		<div class="grain" aria-hidden="true"></div>
+
+		<Nav homeHref={homeHref} />
+
+		<slot />
+
+		<script>
+			// Scroll progress bar — shared by every page.
+			//
+			// scaleX on a full-width bar rather than a growing `width`: width is a
+			// layout property, so every write forced layout + paint, and this runs
+			// on every scroll tick of every page (a ~30,000px article included).
+			// Measured 0.011ms per width write against 0.002ms for scaleX.
+			//
+			// Writes are coalesced into a rAF: scroll fires faster than the
+			// compositor paints, so multiple writes per frame were discarded work
+			// that each forced a synchronous layout.
+			const bar = document.getElementById("progress");
+			let ticking = false;
+
+			const paint = () => {
+				ticking = false;
+				const h = document.documentElement.scrollHeight - window.innerHeight;
+				const p = h > 0 ? window.scrollY / h : 0;
+				if (bar) bar.style.transform = "scaleX(" + p.toFixed(4) + ")";
+			};
+
+			const update = () => {
+				if (ticking) return;
+				ticking = true;
+				requestAnimationFrame(paint);
+			};
+
+			window.addEventListener("scroll", update, { passive: true });
+			window.addEventListener("resize", update, { passive: true });
+			paint();
+
+			// Smooth-scroll same-page anchors. Only nav clicks are animated — the
+			// wheel is left native, so there is no scroll latency or hijacking.
+			document.addEventListener("click", (e) => {
+				const link = (e.target as HTMLElement)?.closest?.<HTMLAnchorElement>('a[href^="#"]');
+				if (!link) return;
+
+				const id = link.getAttribute("href")!.slice(1);
+				if (!id) return;
+
+				const target = document.getElementById(id);
+				if (!target) return;
+
+				e.preventDefault();
+				const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+				target.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+
+				// Keep the URL and focus in sync without the browser's own jump.
+				history.pushState(null, "", `#${id}`);
+				target.setAttribute("tabindex", "-1");
+				target.focus({ preventScroll: true });
+			});
+
+			// Reveal-on-scroll. Elements start hidden via CSS; if the observer is
+			// unavailable or motion is reduced, show everything immediately.
+			const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+			const targets = document.querySelectorAll(
+				"[data-reveal], [data-reveal-group]"
+			);
+
+			if (!reduce && "IntersectionObserver" in window) {
+				// Stamp each group child with its index so CSS can stagger it.
+				document
+					.querySelectorAll<HTMLElement>("[data-reveal-group]")
+					.forEach((group) => {
+						Array.from(group.children).forEach((child, i) => {
+							(child as HTMLElement).style.setProperty("--i", String(i));
+						});
+					});
+
+				// Two thresholds, not one. `0.12` gives normal-sized blocks a
+				// reveal that waits until they are meaningfully on screen. But an
+				// element taller than the root band can never reach a ratio of
+				// 0.12 — at a 900px viewport only ~828px of it is ever inside the
+				// band, so anything over ~6900px caps below the threshold and the
+				// callback never fires, leaving it invisible forever. Adding `0`
+				// means "any pixel intersects" also qualifies, so tall elements
+				// still reveal. Whichever fires first wins; unobserve stops the
+				// second from doing redundant work.
+				const io = new IntersectionObserver(
+					(entries) => {
+						entries.forEach((en) => {
+							if (en.isIntersecting) {
+								en.target.classList.add("in");
+								io.unobserve(en.target);
+							}
+						});
+					},
+					{ threshold: [0, 0.12], rootMargin: "0px 0px -8% 0px" }
+				);
+				targets.forEach((el) => io.observe(el));
+			} else {
+				targets.forEach((el) => el.classList.add("in"));
+			}
+		</script>
+	</body>
+</html>

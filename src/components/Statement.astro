@@ -1,0 +1,29 @@
+---
+// Kinetic outlined statement divider.
+---
+
+<section class="statement" data-reveal>
+	<h2>From prototype<br />to <span class="stroke">production.</span></h2>
+</section>
+
+<style>
+	.statement {
+		/* Trimmed twice from the design's clamp(112px, 13vw, 208px): that value
+		   assumed an eyebrow above the headline, and without it the block is
+		   shorter, so the original padding read as a gap rather than a breath.
+		   Now roughly level with a normal section — the statement's own scale
+		   (--t-display, outlined) is what sets it apart, not its padding. */
+		padding: clamp(68px, 7.5vw, 120px) var(--gutter);
+	}
+
+	h2 {
+		margin: 0;
+		font: 500 var(--t-display) / 0.9 "Clash Display", sans-serif;
+		letter-spacing: -0.04em;
+	}
+
+	.stroke {
+		-webkit-text-stroke: clamp(1px, 0.18vw, 2px) var(--fg);
+		color: transparent;
+	}
+</style>

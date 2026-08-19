@@ -1,0 +1,630 @@
+---
+// Interactive AD monogram — a rounded slab with the initials and two diagonal
+// slashes knocked out, sampled into particles that part around the cursor and
+// ripple on click. Ported from the "AD Monogram Hero" design.
+//
+// Canvas rather than SVG: the effect needs per-particle physics on thousands of
+// points, which is a paint job, not a DOM one. It draws with `currentColor`
+// resolved from the theme token, so it follows the light/dark toggle.
+---
+
+<div class="mono" data-mono>
+	<canvas data-mono-canvas aria-hidden="true"></canvas>
+</div>
+
+<style>
+	.mono {
+		width: min(100%, 320px);
+		justify-self: end;
+	}
+
+	/* The canvas parent is the measured box — it must have a resolved size
+	   before init() reads it, hence the explicit aspect-ratio. */
+	.mono canvas {
+		display: block;
+		width: 100%;
+		aspect-ratio: 1 / 1;
+		/* The design used `crosshair`, which signals precision selection — wrong
+		   for a mark you only pass a pointer over. The particles are their own
+		   hover feedback, so the cursor should stay out of the way.
+		   `user-select: none` is the load-bearing half: a canvas is selectable
+		   like any element, so without it dragging across the mark shows an
+		   I-beam and leaves it highlighted. The `cursor` longhand alone does not
+		   prevent that, and the minifier drops it as an initial value anyway. */
+		cursor: default;
+		user-select: none;
+		-webkit-user-select: none;
+		touch-action: manipulation;
+	}
+
+	@media (max-width: 900px) {
+		.mono {
+			justify-self: start;
+			width: min(100%, 260px);
+		}
+	}
+
+	/* On a phone the mark is the largest block in the hero (260px) and, since
+	   pointer tracking is fine-pointer-only, it carries no interaction either —
+	   it was pushing the positioning copy and the scroll cue off the fold.
+	   Halved rather than hidden: it is the site's identity mark, and at 150px it
+	   still reads clearly while returning ~110px to the first screen. */
+	@media (max-width: 640px) {
+		.mono {
+			width: min(100%, 150px);
+		}
+	}
+</style>
+
+<script>
+	// Tuned to the design's defaults.
+	// Sampling gap in px — lower is denser. The terminal mark inks only ~9.5% of
+	// the box where the old filled slab covered ~53%, so it needs a much tighter
+	// gap to carry the same particle texture: 1.3 here would leave it visibly
+	// sparse and thin.
+	// Sampling gap in px at the mark's *backing* resolution. 0.6 was tuned when
+	// MAX_POINTS was 34000: the first pass always overshot that ceiling, so the
+	// retry loop below ran four times, rasterising and pixel-scanning a 640x640
+	// canvas on each — ~18ms unthrottled, ~71ms on slower hardware, three
+	// quarters of it discarded. 1.8 is where the loop lands against the 12000
+	// ceiling below, so it now fits on the first attempt and the retry never runs.
+	// Measured: 1 pass at ~3ms against 4 passes at ~18ms.
+	// If you change MAX_POINTS, re-derive this — the two are a matched pair.
+	const DENSITY = 1.8;
+	const DOT = 0.7;
+	const REPEL_RADIUS = 0.1; // fraction of the mark's size
+	const REPEL_STRENGTH = 1;
+
+	// Terminal prompt geometry — a chevron and a block cursor, both expressed as
+	// fractions of the mark's size so the mark scales cleanly. Drawn as paths
+	// rather than typeset, so unlike the old "AD" there is no font to wait for
+	// and no face-specific width to measure around.
+	const STROKE = 0.11; // chevron bar thickness
+	const CHEV_X = 0.3; // chevron apex, from left
+	const CHEV_H = 0.22; // chevron half-height
+	const CUR_SIZE = 0.19; // block cursor side
+	const CUR_X = 0.55; // cursor left edge
+	const CUR_R = 0.16; // cursor corner radius, as a fraction of its own side
+	// Ceiling, not a target — the loop widens the gap until the count fits.
+	// The physics is O(points) per frame, so this is the frame-budget knob.
+	//
+	// 34000 permitted ~26,800 particles, and `draw` was the single largest
+	// contributor to boot cost: 107ms of self time in a CPU profile, landing as
+	// two long tasks (139ms + 72ms) while the browser was still fetching fonts.
+	// 12000 halves the per-frame work. The mark inks only ~9.5% of its box, so it
+	// stays legible at this density.
+	const MAX_POINTS = 12000;
+
+	type Pt = {
+		hx: number;
+		hy: number;
+		x: number;
+		y: number;
+		vx: number;
+		vy: number;
+		k: number;
+		rj: number;
+	};
+
+	const root = document.querySelector<HTMLElement>("[data-mono]");
+	const canvas = root?.querySelector<HTMLCanvasElement>("[data-mono-canvas]");
+
+	if (root && canvas) {
+		// Both of these can flip mid-session: a user toggles Reduce Motion in OS
+		// settings, or an iPad gains a trackpad / a laptop docks to a touchscreen.
+		// Read them live rather than capturing once at load — init() already
+		// re-runs on resize and theme change, so a stale capture meant the loop
+		// kept running against a preference the user had since changed.
+		const mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+		// No fine pointer means the repel pocket can never trigger — there is no
+		// hover to drive it. Running the physics anyway makes a phone pay the
+		// full per-frame cost for an interaction it cannot perform.
+		const mqFine = window.matchMedia("(hover: hover) and (pointer: fine)");
+		let raf = 0;
+		let listeners: [string, EventListener][] = [];
+		let resizeTimer = 0;
+		// init() can run repeatedly (resize, theme change), so each of these
+		// holds a teardown for the previous run's global subscription.
+		let io: IntersectionObserver | null = null;
+		let vis: (() => void) | null = null;
+
+		/** Read the ink colour from the live theme token so the mark follows it. */
+		const ink = () =>
+			getComputedStyle(document.documentElement)
+				.getPropertyValue("--fg")
+				.trim() || "#0f0e0c";
+
+		/**
+		 * Rasterise the mark offscreen, then sample its opaque pixels on a grid.
+		 * The terminal prompt is drawn as positive ink — a stroked chevron and a
+		 * filled block cursor — rather than knocked out of a slab, so there is no
+		 * compositing to sequence and no glyph to heal around.
+		 */
+		/* The mark itself, as a path. Shared by the instant static paint and the
+		   offscreen sampler so the two can never drift apart — the static frame
+		   has to be the same shape the particles resolve into, or the upgrade
+		   reads as the logo changing rather than coming alive. */
+		function paintMark(
+			c: CanvasRenderingContext2D,
+			w: number,
+			h: number,
+			ink: string
+		) {
+			const size = Math.min(w, h) * 0.94;
+			const x0 = (w - size) / 2;
+			const y0 = (h - size) / 2;
+			const cy = y0 + size / 2;
+
+			c.fillStyle = ink;
+			c.strokeStyle = ink;
+
+			// The chevron. Round cap and join give it the drawn, slightly soft
+			// terminal look of the reference rather than a hard mitred arrow.
+			c.lineWidth = size * STROKE;
+			c.lineCap = "round";
+			c.lineJoin = "round";
+			c.beginPath();
+			c.moveTo(x0 + size * (CHEV_X - CHEV_H * 0.82), cy - size * CHEV_H);
+			c.lineTo(x0 + size * CHEV_X, cy);
+			c.lineTo(x0 + size * (CHEV_X - CHEV_H * 0.82), cy + size * CHEV_H);
+			c.stroke();
+
+			// The block cursor, sitting on the prompt's baseline.
+			const cs = size * CUR_SIZE;
+			const cx0 = x0 + size * CUR_X;
+			const cy0 = cy + size * CHEV_H - cs;
+			const crad = cs * CUR_R;
+			c.beginPath();
+			if (c.roundRect) c.roundRect(cx0, cy0, cs, cs, crad);
+			else {
+				c.moveTo(cx0 + crad, cy0);
+				c.arcTo(cx0 + cs, cy0, cx0 + cs, cy0 + cs, crad);
+				c.arcTo(cx0 + cs, cy0 + cs, cx0, cy0 + cs, crad);
+				c.arcTo(cx0, cy0 + cs, cx0, cy0, crad);
+				c.arcTo(cx0, cy0, cx0 + cs, cy0, crad);
+			}
+			c.fill();
+
+			return size;
+		}
+
+		function samplePoints(w: number, h: number, gap: number) {
+			const off = document.createElement("canvas");
+			off.width = w;
+			off.height = h;
+			const c = off.getContext("2d", { willReadFrequently: true });
+			if (!c) return { pts: [] as number[][], size: 0 };
+
+			const size = paintMark(c, w, h, "#fff");
+
+			const data = c.getImageData(0, 0, w, h).data;
+			const pts: number[][] = [];
+			for (let y = 0; y < h; y += gap) {
+				for (let x = 0; x < w; x += gap) {
+					const j = ((y | 0) * w + (x | 0)) * 4 + 3;
+					if (data[j] < 150) continue;
+					pts.push([
+						x + (Math.random() - 0.5) * gap * 0.35,
+						y + (Math.random() - 0.5) * gap * 0.35,
+					]);
+				}
+			}
+			return { pts, size };
+		}
+
+		function init() {
+			if (!canvas || !canvas.parentElement) return;
+			cancelAnimationFrame(raf);
+
+			const rect = canvas.getBoundingClientRect();
+			// The floor guards against a pre-layout read of 0, not against a
+			// legitimately small box: the phone breakpoint sets the mark to 150px,
+			// and a flat max(200) clamped the backing store to 200*dpr and drew
+			// the mark into a 200px coordinate space that was then squeezed into
+			// 150 — a 2.67x backing ratio against a dpr of 2. Only fall back when
+			// the measurement is unusable.
+			const w = Math.round(rect.width) || 200;
+			const h = Math.round(rect.height) || 200;
+			const dpr = Math.min(2, window.devicePixelRatio || 1);
+			canvas.width = w * dpr;
+			canvas.height = h * dpr;
+			const ctx = canvas.getContext("2d");
+			if (!ctx) return;
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+			// Floor guards against a pathological point count, not against DENSITY
+			// itself — an earlier 1.5 here silently overrode any denser setting.
+			let gap = Math.max(0.45, DENSITY);
+			let s = samplePoints(w, h, gap);
+			while (s.pts.length > MAX_POINTS && gap < 8) {
+				gap += 0.2;
+				s = samplePoints(w, h, gap);
+			}
+			const size = s.size;
+			const R = size * REPEL_RADIUS;
+
+			const P: Pt[] = s.pts.map((p) => ({
+				hx: p[0],
+				hy: p[1],
+				x: p[0],
+				y: p[1],
+				vx: 0,
+				vy: 0,
+				k: 0.2 + Math.random() * 0.05,
+				// Per-particle pocket radius keeps the repelled rim porous
+				// instead of reading as a hard circle.
+				rj: 0.62 + Math.random() * 0.5,
+			}));
+
+			// Reduced motion, or no fine pointer: draw the mark once, statically,
+			// and skip the loop entirely. Read at init() time, not at load, so a
+			// mid-session preference change takes effect on the next re-init.
+			if (mqReduce.matches || !mqFine.matches) {
+				ctx.clearRect(0, 0, w, h);
+				ctx.fillStyle = ink();
+				ctx.beginPath();
+				for (const p of P) {
+					ctx.moveTo(p.x + DOT, p.y);
+					ctx.arc(p.x, p.y, DOT, 0, 6.2832);
+				}
+				ctx.fill();
+				return;
+			}
+
+			listeners.forEach(([e, f]) => canvas.removeEventListener(e, f));
+			const mouse = { x: 0, y: 0, on: false };
+			const sm = { x: 0, y: 0, amt: 0, vx: 0, vy: 0 };
+			const ripples: { x: number; y: number; t: number }[] = [];
+
+			// Use offsetX/offsetY rather than clientX − rect.left. The browser
+			// computes them against the event target's own padding box, so they
+			// need no rect at all: nothing to cache, nothing to invalidate, and
+			// no getBoundingClientRect() on a path that fires at up to 1000Hz.
+			//
+			// A cached rect was wrong here: init() runs before the preloader
+			// releases scroll and the hero's [data-reveal] transform settles, so
+			// the captured position was stale from the start and the pocket sat
+			// up-and-left of the cursor. Only a scroll refreshed it, so loading
+			// and hovering without scrolling never corrected it.
+			// This works because the canvas has no border or padding — offset*
+			// is measured from the padding box, which here is the content box.
+			const move = (ev: PointerEvent) => {
+				const nx = ev.offsetX;
+				const ny = ev.offsetY;
+				if (!mouse.on) {
+					sm.x = nx;
+					sm.y = ny;
+				}
+				mouse.x = nx;
+				mouse.y = ny;
+				mouse.on = true;
+				wake();
+			};
+			const leave = () => {
+				mouse.on = false;
+				wake();
+			};
+			const down = (ev: PointerEvent) => {
+				ripples.push({ x: ev.offsetX, y: ev.offsetY, t: 0 });
+				if (ripples.length > 4) ripples.shift();
+				wake();
+			};
+			// A finger has no resting position, so `pointermove` only fires while
+			// dragging across the canvas — which is the same gesture as scrolling
+			// the page. Tracking it there means the mark fights the scroll for
+			// every swipe that happens to start on it, and the parting effect is
+			// never seen anyway because the finger covers it.
+			// `pointerdown` stays on both: a tap gives touch its own deliberate
+			// interaction (the ripple) without hijacking anything.
+			const fine = window.matchMedia("(pointer: fine)").matches;
+			listeners = fine
+				? [
+						["pointermove", move as EventListener],
+						["pointerleave", leave as EventListener],
+						["pointerdown", down as EventListener],
+					]
+				: [["pointerdown", down as EventListener]];
+			listeners.forEach(([e, f]) => canvas.addEventListener(e, f));
+
+			const waveSpeed = size * 0.3; // px/s — slow, water-like
+			const waveWidth = size * 0.22;
+			const waveLife = 2.6;
+			const waveAmp = size * 0.05;
+
+			// Three reasons the loop may be parked, tracked separately so that
+			// re-entering the viewport does not resurrect a tab-hidden loop and
+			// vice versa. `running` guards against double-scheduling rAF.
+			let onscreen = true;
+			let running = false;
+
+			/** Start the loop unless something says it should stay parked. */
+			function wake() {
+				if (running || !onscreen || document.hidden) return;
+				running = true;
+				last = performance.now();
+				raf = requestAnimationFrame(draw);
+			}
+
+			function park() {
+				running = false;
+				cancelAnimationFrame(raf);
+			}
+
+			let last = performance.now();
+			const draw = (now: number) => {
+				const dt = Math.min(0.05, (now - last) / 1000) || 0.016;
+				last = now;
+
+				for (let i = ripples.length - 1; i >= 0; i--) {
+					ripples[i].t += dt;
+					if (ripples[i].t > waveLife) ripples.splice(i, 1);
+				}
+
+				let peakV2 = 0;
+
+				ctx.clearRect(0, 0, w, h);
+				ctx.fillStyle = ink();
+				ctx.beginPath();
+
+				// Smooth the pointer path and fade the pocket in / out.
+				const px0 = sm.x;
+				const py0 = sm.y;
+				if (mouse.on) {
+					sm.x += (mouse.x - sm.x) * 0.22;
+					sm.y += (mouse.y - sm.y) * 0.22;
+					sm.amt += (1 - sm.amt) * 0.12;
+				} else {
+					sm.amt += (0 - sm.amt) * 0.1;
+				}
+				sm.vx = sm.x - px0;
+				sm.vy = sm.y - py0;
+				const mx = sm.x;
+				const my = sm.y;
+				const mon = sm.amt > 0.004;
+				const Rr = R * sm.amt;
+				const spd = Math.sqrt(sm.vx * sm.vx + sm.vy * sm.vy);
+				const tail = Math.min(1.1, spd / Math.max(1, Rr * 0.5));
+				const dirx = spd > 0.01 ? sm.vx / spd : 0;
+				const diry = spd > 0.01 ? sm.vy / spd : 0;
+
+				for (let i = 0; i < P.length; i++) {
+					const p = P[i];
+
+					// Ripple displaces the rest position rather than the particle,
+					// so the wave passes through and the mark reassembles.
+					let tx = p.hx;
+					let ty = p.hy;
+					for (let j = 0; j < ripples.length; j++) {
+						const rp = ripples[j];
+						const dx = p.hx - rp.x;
+						const dy = p.hy - rp.y;
+						const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+						const phase = (d - rp.t * waveSpeed) / waveWidth;
+						if (phase > -1 && phase < 1) {
+							const env = 1 - Math.abs(phase);
+							const soft = env * env * (3 - 2 * env);
+							const decay = Math.pow(1 - rp.t / waveLife, 1.4);
+							const amp = Math.sin(phase * Math.PI) * soft * decay * waveAmp;
+							tx += (dx / d) * amp;
+							ty += (dy / d) * amp;
+						}
+					}
+
+					let kEff = p.k;
+
+					// Flow field: ease outward, and slide tangentially with the
+					// cursor's motion so the pocket drags a tail.
+					if (mon) {
+						const dx = p.x - mx;
+						const dy = p.y - my;
+						const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+						const outer = Rr * 1.8;
+						if (d < outer * (1 + tail)) {
+							const nx = dx / d;
+							const ny = dy / d;
+							const behind = Math.max(0, -(nx * dirx + ny * diry));
+							const u = Math.max(0, 1 - d / (outer * (1 + tail * behind)));
+							const f = u * u * (3 - 2 * u);
+							// Tangential drag: the pointer's motion slides particles
+							// sideways as it passes. This is what produced the bounce
+							// just behind the cursor — the sideways flick has nothing
+							// damping it along that axis, so particles sprang back
+							// past centre. At 0.18 the tail still reads as dragged
+							// rather than rigid, without the whip.
+							const drag = sm.vx * -ny + sm.vy * nx;
+							p.vx += nx * f * 1.4 * REPEL_STRENGTH + -ny * drag * f * 0.18;
+							p.vy += ny * f * 1.4 * REPEL_STRENGTH + nx * drag * f * 0.18;
+							kEff = p.k * (1 - 0.62 * behind * tail);
+						}
+					}
+
+					p.vx += (tx - p.x) * kEff;
+					p.vy += (ty - p.y) * kEff;
+					// 0.66 was underdamped despite the old comment claiming
+					// otherwise: a released particle overshot ~0.55px and crossed
+					// centre twice. 0.58 cuts that to ~0.07px — an 8× reduction —
+					// while staying short of the ~0.5 that kills the spring feel
+					// and makes the return read as stiff.
+					p.vx *= 0.58;
+					p.vy *= 0.58;
+					p.x += p.vx;
+					p.y += p.vy;
+
+					// Cheapest useful settle test: squared speed, no sqrt, reusing
+					// values already in registers.
+					const v2 = p.vx * p.vx + p.vy * p.vy;
+					if (v2 > peakV2) peakV2 = v2;
+
+					// Hard constraint: nothing enters the pocket, so the dots part
+					// around it rather than smearing through.
+					if (mon) {
+						const dx = p.x - mx;
+						const dy = p.y - my;
+						const d = Math.sqrt(dx * dx + dy * dy) || 0.001;
+						let rr = Rr * p.rj;
+						if (tail > 0.001 && d > 0.001) {
+							const a0 = dx * dirx + dy * diry;
+							const b0 = dx * -diry + dy * dirx;
+							const a = a0 < 0 ? a0 / (1 + 1.5 * tail) : a0;
+							const dd = Math.sqrt(a * a + b0 * b0) || 0.001;
+							rr = rr * (d / dd);
+						}
+						if (d < rr) {
+							const nx = dx / d;
+							const ny = dy / d;
+							const corr = (rr - d) * 0.3;
+							p.x += nx * corr;
+							p.y += ny * corr;
+							const vr = p.vx * nx + p.vy * ny;
+							if (vr < 0) {
+								p.vx -= vr * nx;
+								p.vy -= vr * ny;
+							}
+						}
+					}
+
+					ctx.moveTo(p.x + DOT, p.y);
+					ctx.arc(p.x, p.y, DOT, 0, 6.2832);
+				}
+				ctx.fill();
+
+				// Park once the mark is genuinely at rest: pocket faded out, no
+				// live ripples, and every particle back home. The steady state is
+				// a still image, so redrawing it 60×/s is pure waste — the next
+				// pointer event calls wake(). 1e-4 ≈ 0.01px/frame, well under a
+				// device pixel, so nothing visible is dropped.
+				if (!mon && !ripples.length && peakV2 < 1e-4) {
+					running = false;
+					return;
+				}
+				raf = requestAnimationFrame(draw);
+			};
+			wake();
+
+			// Only animate what is on screen. The hero is one screen of a long
+			// page; without this the loop keeps burning frames for a mark that
+			// scrolled away several sections ago.
+			io?.disconnect();
+			io = new IntersectionObserver(
+				(entries) => {
+					onscreen = entries[0].isIntersecting;
+					if (onscreen) wake();
+					else park();
+				},
+				{ threshold: 0 },
+			);
+			io.observe(canvas);
+
+			vis?.();
+			const onVis = () => (document.hidden ? park() : wake());
+			document.addEventListener("visibilitychange", onVis);
+			vis = () => document.removeEventListener("visibilitychange", onVis);
+		}
+
+		// The mark is pure geometry now, so there is no webfont to wait for — the
+		// old fonts.ready gate existed because "AD" was a rasterised glyph.
+		//
+		// Defer past the preloader rather than racing it. Rasterising and sampling
+		// ~28k points blocks the main thread for tens of ms, and the mark sits
+		// behind the loader where nobody can see it — so doing that work during
+		// the count-up only steals frames from the one animation on screen.
+		// requestIdleCallback yields until the thread is free; the timeout is the
+		// backstop for Safari, which does not implement it.
+		/* Paint a solid mark on the very first frame.
+
+		   The particle version cannot start until the preloader is done and the
+		   thread is idle — sampling ~28k points blocks long enough to starve the
+		   count-up's frames, which is what caused the counter to jump. But that
+		   gate left the hero with an empty box for the second or two after the
+		   loader lifted.
+
+		   Drawing the same path as filled geometry costs about a millisecond and
+		   needs no sampling, so the mark is simply *there* from the start. When
+		   init() runs it clears the canvas and takes over; because both use
+		   paintMark(), the shape does not change — it only comes alive. */
+		let booted = false;
+		const paintStatic = () => {
+			if (!canvas || !canvas.parentElement) return;
+			const rect = canvas.getBoundingClientRect();
+			// The floor guards against a pre-layout read of 0, not against a
+			// legitimately small box: the phone breakpoint sets the mark to 150px,
+			// and a flat max(200) clamped the backing store to 200*dpr and drew
+			// the mark into a 200px coordinate space that was then squeezed into
+			// 150 — a 2.67x backing ratio against a dpr of 2. Only fall back when
+			// the measurement is unusable.
+			const w = Math.round(rect.width) || 200;
+			const h = Math.round(rect.height) || 200;
+			const dpr = Math.min(2, window.devicePixelRatio || 1);
+			canvas.width = w * dpr;
+			canvas.height = h * dpr;
+			const c = canvas.getContext("2d");
+			if (!c) return;
+			c.setTransform(dpr, 0, 0, dpr, 0, 0);
+			paintMark(c, w, h, ink());
+		};
+		// One frame, not immediately: the module runs before layout has sized the
+		// canvas, so getBoundingClientRect() reads 0 and the backing store keeps
+		// its default 300x150 — the mark would be drawn into the wrong box and
+		// never appear. rAF fires after the first layout pass, which is still the
+		// same paint the hero arrives in.
+		requestAnimationFrame(paintStatic);
+
+		const boot = () =>
+			requestAnimationFrame(() => {
+				booted = true;
+				init();
+			});
+		const idle = () => {
+			const ric = window.requestIdleCallback;
+			if (typeof ric === "function") ric(boot, { timeout: 2000 });
+			else window.setTimeout(boot, 300);
+		};
+
+		// Wait for the preloader to finish before doing any of this work.
+		// requestIdleCallback alone was not enough: the browser hands out idle
+		// slices *during* the count, and rasterising ~28k points blocks long
+		// enough to starve the counter's frames, which then jumps. The loader
+		// covers the mark anyway, so there is nothing to gain by starting early.
+		const loader = document.querySelector("[data-loader]");
+		const pending =
+			loader && document.documentElement.hasAttribute("data-preload");
+		if (pending && !loader.hasAttribute("hidden")) {
+			new MutationObserver((_m, obs) => {
+				if (loader.hasAttribute("data-done")) {
+					obs.disconnect();
+					idle();
+				}
+			}).observe(loader, { attributes: true, attributeFilter: ["data-done"] });
+		} else {
+			idle();
+		}
+
+		window.addEventListener("resize", () => {
+			clearTimeout(resizeTimer);
+			resizeTimer = window.setTimeout(init, 160);
+		});
+
+		// Re-init when either preference flips, so the static and animated paths
+		// swap without a reload. init() cancels the outstanding frame and rebuilds
+		// its own `running` state, so switching *into* reduced motion stops the
+		// loop rather than leaving it orphaned.
+		mqReduce.addEventListener("change", init);
+		mqFine.addEventListener("change", init);
+
+		// Re-rasterise on theme change so the ink colour tracks the tokens. Before
+		// boot the particle system does not exist yet, so repaint the static mark
+		// instead — calling init() here would do the ~28k-point sample during the
+		// preloader, which is exactly what the boot gate defers.
+		new MutationObserver(() => {
+			if (!booted) {
+				paintStatic();
+				return;
+			}
+			cancelAnimationFrame(raf);
+			init();
+		}).observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ["data-theme"],
+		});
+	}
+</script>

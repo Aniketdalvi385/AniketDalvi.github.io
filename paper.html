@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When the LLM Is the Weak Link — Aniket Dalvi</title>
+<meta name="description" content="A deterministic-first architecture for local intent classification on memory-constrained hardware. A first-person research report.">
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=clash-display@400,500,600,700&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  /* ---- design tokens: light (bare :root = full light palette) ---- */
+  :root{
+    --bg:#fbfaf8; --fg:#0f0e0c; --mut:#7c766c; --line:rgba(0,0,0,.12);
+    --card:#f1efe9; --faint:rgba(0,0,0,.04); --accent:#3fae6b;
+    --code-bg:#f1efe9; --sel:#0f0e0c; --sel-fg:#fbfaf8;
+    --maxw:1280px; --col:68ch;
+  }
+  /* system-dark (un-stamped): redefine only tokens, guarded so explicit light wins */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0c0b0a; --fg:#f4f2ec; --mut:#8b857a; --line:rgba(255,255,255,.14);
+      --card:#16140f; --faint:rgba(255,255,255,.045); --accent:#4cc47c;
+      --code-bg:#16140f; --sel:#f4f2ec; --sel-fg:#0c0b0a;
+    }
+  }
+  /* explicit dark: toggle wins in the other direction too */
+  :root[data-theme="dark"]{
+    --bg:#0c0b0a; --fg:#f4f2ec; --mut:#8b857a; --line:rgba(255,255,255,.14);
+    --card:#16140f; --faint:rgba(255,255,255,.045); --accent:#4cc47c;
+    --code-bg:#16140f; --sel:#f4f2ec; --sel-fg:#0c0b0a;
+  }
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:"General Sans",system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+    min-height:100vh; transition:background .5s ease,color .5s ease; overflow-x:hidden;
+  }
+  ::selection{background:var(--sel); color:var(--sel-fg)}
+  a{color:inherit; text-decoration:none}
+
+  /* ---- fixed gutter rails (portfolio signature) ---- */
+  .rails{position:fixed; inset:0; z-index:2; pointer-events:none}
+  .rails::before,.rails::after{content:""; position:absolute; top:0; bottom:0; width:1px; background:var(--line)}
+  .rails::before{left:clamp(16px,3vw,44px)} .rails::after{right:clamp(16px,3vw,44px)}
+  @media (max-width:720px){ .rails{display:none} }
+
+  /* ---- scroll progress ---- */
+  #progress{position:fixed; top:0; left:0; height:2px; width:0; background:var(--fg); z-index:60; transition:width .08s linear}
+
+  /* ---- nav ---- */
+  header.nav{position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center;
+    justify-content:space-between; padding:14px clamp(40px,7vw,110px);
+    background:var(--bg); border-bottom:1px solid var(--line); transition:background .5s ease}
+  .brand{display:flex; align-items:center; gap:12px}
+  .mark{width:26px; height:26px; border:1px solid var(--fg); display:flex; align-items:center; justify-content:center;
+    font:600 11px "JetBrains Mono",monospace}
+  .brand .nm{font:500 14px "General Sans",sans-serif; letter-spacing:-.01em}
+  .nav-right{display:flex; align-items:center; gap:clamp(14px,2vw,26px)}
+  .nav-right a{font:500 11px "JetBrains Mono",monospace; letter-spacing:.06em; color:var(--mut); transition:color .2s}
+  .nav-right a:hover{color:var(--fg)}
+  .toggle{display:inline-flex; align-items:center; gap:8px; padding:7px 13px; border:1px solid var(--line);
+    border-radius:999px; background:transparent; color:var(--fg); cursor:pointer;
+    font:500 10px "JetBrains Mono",monospace; letter-spacing:.08em; text-transform:uppercase; transition:background .2s}
+  .toggle:hover{background:var(--card)}
+  .toggle .dot{width:7px; height:7px; border-radius:50%; background:var(--fg)}
+  @media (max-width:640px){ .nav-hide{display:none} }
+
+  /* ---- shell ---- */
+  main{max-width:var(--maxw); margin:0 auto; padding:0 clamp(40px,7vw,110px)}
+  .wrap{max-width:var(--col); margin:0 auto}
+
+  /* ---- masthead ---- */
+  .masthead{padding:calc(64px + 8vh) 0 clamp(40px,6vw,72px); border-bottom:1px solid var(--line)}
+  .eyebrow{font:500 11px "JetBrains Mono",monospace; letter-spacing:.16em; color:var(--mut); text-transform:uppercase}
+  .masthead h1{margin:clamp(20px,3vw,30px) 0 0; font:600 clamp(38px,6.2vw,86px)/0.98 "Clash Display",sans-serif;
+    letter-spacing:-.035em; text-wrap:balance}
+  .subtitle{margin:clamp(16px,2vw,22px) 0 0; font:500 clamp(17px,1.9vw,24px)/1.35 "General Sans",sans-serif;
+    color:var(--mut); letter-spacing:-.01em; max-width:34ch; text-wrap:balance}
+  .byline{margin:clamp(28px,3.5vw,44px) 0 0; display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center;
+    font:500 12px "JetBrains Mono",monospace; color:var(--mut)}
+  .byline .who{color:var(--fg)}
+  .byline a{color:var(--accent)}
+  .byline a:hover{text-decoration:underline}
+  .standfirst{margin:clamp(26px,3vw,38px) 0 0; font:400 clamp(15px,1.35vw,18px)/1.6 "General Sans",sans-serif;
+    color:var(--mut); font-style:italic; max-width:60ch}
+
+  /* ---- abstract block ---- */
+  .abstract{margin:clamp(40px,5vw,64px) 0; padding:clamp(24px,3vw,36px); background:var(--card);
+    border:1px solid var(--line); border-radius:2px}
+  .abstract .eyebrow{margin-bottom:16px}
+  .abstract p{margin:0 0 16px; font:400 clamp(14px,1.05vw,15.5px)/1.7 "General Sans",sans-serif}
+  .abstract p:last-child{margin-bottom:0}
+
+  /* ---- section article body ---- */
+  article{padding:clamp(30px,4vw,56px) 0 clamp(60px,8vw,110px)}
+  section{padding:clamp(28px,3.5vw,48px) 0; border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  h2{margin:0 0 clamp(18px,2vw,26px); font:600 clamp(24px,3vw,38px)/1.05 "Clash Display",sans-serif;
+    letter-spacing:-.025em; text-wrap:balance; display:flex; align-items:baseline; gap:14px}
+  h2 .num{font:500 13px "JetBrains Mono",monospace; color:var(--accent); letter-spacing:.04em; flex:none}
+  h3{margin:clamp(30px,3.5vw,44px) 0 clamp(12px,1.4vw,18px); font:600 clamp(17px,1.7vw,21px) "General Sans",sans-serif;
+    letter-spacing:-.015em}
+  p{margin:0 0 clamp(14px,1.5vw,20px); font:400 clamp(15px,1.15vw,17px)/1.65 "General Sans",sans-serif}
+  strong{font-weight:600}
+  em{font-style:italic}
+  a.inline{color:var(--accent); border-bottom:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+  a.inline:hover{border-bottom-color:var(--accent)}
+
+  ul,ol{margin:0 0 clamp(16px,1.8vw,22px); padding-left:0; list-style:none; display:flex; flex-direction:column; gap:12px}
+  li{display:grid; grid-template-columns:20px 1fr; gap:10px;
+    font:400 clamp(15px,1.1vw,16.5px)/1.6 "General Sans",sans-serif}
+  li .b{font:500 12px "JetBrains Mono",monospace; color:var(--accent); padding-top:3px}
+  ol{counter-reset:li}
+  ol li{counter-increment:li}
+  ol li .b::before{content:counter(li)}
+
+  code{font:500 .88em "JetBrains Mono",monospace; background:var(--code-bg); padding:.12em .4em; border-radius:3px;
+    border:1px solid var(--line)}
+  pre{margin:clamp(18px,2vw,26px) 0; padding:clamp(16px,2vw,24px); background:var(--code-bg); border:1px solid var(--line);
+    border-radius:2px; overflow-x:auto}
+  pre code{background:none; border:0; padding:0; font-size:13px; line-height:1.6; color:var(--fg); white-space:pre}
+
+  /* ---- figures ---- */
+  figure{margin:clamp(28px,4vw,52px) 0; text-align:center}
+  figure.bleed{max-width:none; width:100%}
+  figure img{max-width:100%; height:auto; border:1px solid var(--line); border-radius:2px; background:var(--card)}
+  figure.meme img{max-width:min(100%,440px); border:0}
+  figcaption{margin-top:12px; font:400 12px "JetBrains Mono",monospace; color:var(--mut); letter-spacing:.02em}
+
+  /* ---- tables ---- */
+  .tbl-wrap{margin:clamp(20px,2.5vw,32px) 0; overflow-x:auto; border:1px solid var(--line); border-radius:2px}
+  .tbl-cap{margin:clamp(20px,2.5vw,30px) 0 10px; font:500 11px "JetBrains Mono",monospace; letter-spacing:.06em;
+    color:var(--mut); text-transform:uppercase}
+  table{width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums}
+  th,td{padding:11px 16px; text-align:left; border-bottom:1px solid var(--line);
+    font:400 13.5px/1.45 "General Sans",sans-serif; vertical-align:top}
+  th{font:600 11px "JetBrains Mono",monospace; letter-spacing:.05em; text-transform:uppercase; color:var(--mut);
+    background:var(--faint)}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.total td{border-top:2px solid var(--line); font-weight:600; background:var(--faint)}
+  td code{font-size:12px}
+  td strong{color:var(--fg)}
+
+  /* ---- callout note ---- */
+  .note{margin:clamp(20px,2.5vw,30px) 0; padding:clamp(16px,2vw,22px) clamp(18px,2vw,24px);
+    border-left:2px solid var(--accent); background:var(--faint); border-radius:0 2px 2px 0}
+  .note p{margin:0; font:400 clamp(13.5px,1vw,15px)/1.6 "General Sans",sans-serif; color:var(--mut)}
+  .note em{color:var(--fg)}
+
+  /* ---- companion / footer ---- */
+  .companion{padding:clamp(40px,6vw,80px) 0; border-top:1px solid var(--line)}
+  .companion .eyebrow{margin-bottom:clamp(20px,2.5vw,30px)}
+  .comp-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:clamp(14px,2vw,20px)}
+  .comp-card{display:block; padding:clamp(20px,2.4vw,28px); border:1px solid var(--line); border-radius:2px;
+    background:var(--bg); transition:background .3s ease,box-shadow .3s ease}
+  .comp-card:hover{background:var(--faint); box-shadow:inset 0 4px 16px -6px rgba(0,0,0,.28)}
+  .comp-card .k{font:500 10px "JetBrains Mono",monospace; letter-spacing:.14em; color:var(--mut); text-transform:uppercase}
+  .comp-card .t{margin:12px 0 8px; font:600 clamp(17px,1.6vw,20px) "Clash Display",sans-serif; letter-spacing:-.02em}
+  .comp-card .d{font:400 13.5px/1.5 "General Sans",sans-serif; color:var(--mut)}
+  .comp-card .go{margin-top:14px; font:500 11px "JetBrains Mono",monospace; color:var(--accent)}
+
+  footer.foot{padding:clamp(30px,4vw,50px) 0; border-top:1px solid var(--line); display:flex; flex-wrap:wrap;
+    gap:18px; align-items:center; justify-content:space-between;
+    font:400 11px "JetBrains Mono",monospace; color:var(--mut)}
+  footer.foot a{color:var(--mut)} footer.foot a:hover{color:var(--fg)}
+
+  /* ---- reveal ---- */
+  [data-reveal]{opacity:0; transform:translateY(22px); transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+  [data-reveal].in{opacity:1; transform:none}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    [data-reveal]{opacity:1; transform:none; transition:none}
+  }
+  :focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div class="rails" aria-hidden="true"></div>
+
+<header class="nav">
+  <a class="brand" href="../../index.html" aria-label="Aniket Dalvi home">
+    <span class="mark">AD</span>
+    <span class="nm nav-hide">Aniket Dalvi</span>
+  </a>
+  <nav class="nav-right">
+    <a class="nav-hide" href="#top">RESEARCH</a>
+    <a href="casestudy.html">CASE STUDY</a>
+    <a href="blog.html">BLOG</a>
+    <button class="toggle" id="themeToggle" aria-label="Toggle color theme">
+      <span class="dot"></span><span id="themeLabel">Light</span>
+    </button>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ============ MASTHEAD ============ -->
+  <div class="masthead" data-reveal>
+    <div class="eyebrow">Research Report &nbsp;·&nbsp; Applied AI &nbsp;·&nbsp; 2026</div>
+    <h1>When the LLM Is the Weak Link</h1>
+    <div class="subtitle">A deterministic-first architecture for local intent classification on memory-constrained hardware.</div>
+    <div class="byline">
+      <span class="who">Aniket Dalvi</span>
+      <span>Experience report / single-system case study</span>
+      <a href="https://github.com/Aniketdalvi385/gitrust" target="_blank" rel="noopener">gitrust ↗</a>
+    </div>
+    <p class="standfirst">A first-person account of a solo project, concept to release. The “I” is literal: every architecture decision, measurement, and mistake below is my own.</p>
+  </div>
+
+  <!-- ============ ABSTRACT ============ -->
+  <div class="wrap">
+    <div class="abstract" data-reveal>
+      <div class="eyebrow">Abstract</div>
+      <p>Natural-language interfaces to developer tools increasingly assume a language model as their interpretive core. This report tests that assumption for a hard case: a command-line tool that maps plain-English requests (“push the login changes,” “undo my last commit but keep the files”) onto safe Git operations, with a strict constraint that classification runs on a <em>local</em> model (no diffs, code, or queries leave the machine) on 8&nbsp;GB of consumer hardware. Building the tool (GiTrust, ~20,000 lines of Rust) surfaced a result that inverted my intended design: on a deliberately mixed 44-case diagnostic set, the local 3B model classifies intent correctly on only <strong>~41%</strong> of cases, and, worse than the raw number, misroutes several <em>destructive</em> requests straight to destructive operations. A nearest-exemplar router built from embeddings of the <em>same, already-loaded</em> model (costing no additional memory) reaches <strong>~64%</strong> and runs roughly <strong>35× faster</strong>, but cannot reject out-of-scope input and is itself unsafe on destructive phrasings. Neither engine is safe alone.</p>
+      <p>The architecture I arrived at therefore demotes the model: a deterministic exact-match path and a conservative, margin-gated embedding router handle the common cases, every destructive decision is owned by a deterministic gate the model never reaches, and the LLM is a fallback for genuinely novel phrasings. A separate study finds that the obvious remedy (a larger local model) is undeployable on the same hardware: a 4B model at the context the real prompt requires (~5,800 tokens) OOM-crashed my test machine and ran ~1.9× slower. I report the eval, the field validation against a 31-case manual acceptance suite (8 → 0 failures across two releases), and (deliberately) the three benchmarking bugs that produced convincing but false numbers along the way. The contribution is not a benchmark but a documented architecture inversion and a reusable pattern for building on unreliable local models: <strong>tier by cost and confidence, let the model route but never decide, and abstain rather than guess.</strong></p>
+    </div>
+  </div>
+
+  <article>
+  <div class="wrap">
+
+    <!-- 1 -->
+    <section data-reveal>
+      <h2><span class="num">01</span>Introduction</h2>
+      <p>Every developer has a version of the same story: a colleague, mid-deadline, runs <code>git reset --hard</code> on the wrong thing, or force-pushes over a teammate’s commit, or is certain they committed work that is now nowhere to be found.</p>
+      <figure class="meme">
+        <img src="../images/punisher-git-reset.png" alt="The Punisher screaming — a colleague reacting to git reset --hard">
+      </figure>
+      <p>Git’s sharpest edges are exposed precisely when its users are most stressed and least careful. The motivating idea behind this project was to put a layer in front of Git that (a) lets a person say what they mean in plain language, and (b) makes the dangerous operations <em>safe by construction</em>, spelled out before they run, snapshotted before they execute, and recoverable afterward.</p>
+      <p>The tempting way to build such a tool, in 2026, is to place a language model at its core: let the model read the request, decide what the user wants, and drive the operation. Two constraints made this a genuinely hard case rather than a routine one. First, the tool had to be <strong>local</strong>: a real user segment will not send their diffs, code, or even their queries to a hosted model, so classification had to run on a model small enough to sit on a normal laptop. Second, the target machine was an <strong>Apple M2 with 8&nbsp;GB of RAM</strong>, which, as I will show, is not an incidental detail but the constraint that ultimately shapes the entire architecture.</p>
+      <p>This report is an account of what happened when that assumption, <em>the local LLM is the intelligent core</em>, was measured instead of trusted. The short version is that it did not survive contact with the data. On a mixed diagnostic set of phrasings that deliberately spans easy, hard, and adversarial cases, the local 3B model routed intent correctly only <strong>~41%</strong> of the time and, more seriously, sent several <em>destructive</em> requests (“throw away my changes”) straight to <em>destructive</em> operations. The finding held up in the field: a manual acceptance suite repeatedly showed that the tool behaved correctly for the single canonical phrasing of each command and misrouted almost every paraphrase.</p>
+      <p>Following the guidance that negative results deserve the same rigor as positive ones, I lead with this one. Its value is not “the model was bad” but <em>why</em> it was bad and <em>what the measurement implied for the architecture.</em> The answer turned out to be counterintuitive: the fix was not a better model but <strong>less</strong> model. Rule-shaped distinctions were moved into deterministic code; a conservative embedding router (built, at no extra memory cost, from the already-loaded model’s own embeddings) took over the common paraphrases; and the LLM was demoted to a fallback that never, under any circumstance, selects a destructive action on its own.</p>
+      <p>This report makes four contributions. (I write “report” and “contributions” in the academic sense, but this is one engineer’s account of one project, and I’ll defend every number in it personally.)</p>
+      <ol>
+        <li><span class="b"></span><span><strong>A measurement.</strong> On a 44-case labeled phrasing set, a direct comparison of the local LLM classifier against an embedding nearest-neighbor router on the <em>same</em> model: 41% vs. 64% routing accuracy, ~35× latency difference, and (the load-bearing finding) that <em>neither</em> engine is safe alone on destructive phrasings (§5).</span></li>
+        <li><span class="b"></span><span><strong>An architecture.</strong> A deterministic-first, three-engine intent pipeline in which the model routes but never decides, and destructive semantics are owned by deterministic gates (§3–§4).</span></li>
+        <li><span class="b"></span><span><strong>A hardware result.</strong> A second negative result: on 8&nbsp;GB, a 4B “upgrade” is undeployable at the context the real prompt requires, closing off the obvious remedy (§6).</span></li>
+        <li><span class="b"></span><span><strong>An honest methodology record.</strong> Three benchmarking bugs that each produced convincing but false accuracy numbers, reported as a cautionary case for evaluation on constrained hardware (§7).</span></li>
+      </ol>
+      <p>I frame this deliberately as a single-system <em>experience report</em>, not a general benchmark: the evidence is one tool, one model family, one machine, and a small author-labeled set. The claim is correspondingly scoped, not “small models cannot classify intent,” but “for this class of tool, on this class of hardware, the model is the wrong place to put the intelligence, and here is the architecture that follows from measuring that.”</p>
+    </section>
+
+    <!-- 2 -->
+    <section data-reveal>
+      <h2><span class="num">02</span>Background and constraints</h2>
+      <p>Two requirements defined the design space before a single line of classification code was written. They are worth stating plainly, because everything downstream is a consequence of them.</p>
+      <h3>Local is non-negotiable</h3>
+      <p>The tool reads your working tree, diffs, filenames, commit messages, sometimes the code itself. For a meaningful set of users (anyone under an NDA, working on proprietary code, or simply privacy-conscious), a Git assistant that ships that content to a hosted API is a non-starter, no matter how good the model. So intent classification had to run on a model small enough to live on the user’s own machine, invoked through a local runtime, in this case <a class="inline" href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>, with <code>qwen2.5:3b</code> (~1.9&nbsp;GB) as the default. Nothing leaves the machine. This is not a performance choice I could relax later; it is the product’s reason to exist, and it fixes the model class at “small enough to run comfortably on a laptop.”</p>
+      <h3>The hardware is 8&nbsp;GB, and that number does real work</h3>
+      <p>I built and targeted the tool on an Apple M2 with 8&nbsp;GB of unified memory. It is tempting to treat the machine as an implementation detail, but on 8&nbsp;GB it is the <em>binding constraint</em>, the fact that most directly shapes what the architecture can and cannot be. Two consequences matter for what follows:</p>
+      <ul>
+        <li><span class="b">→</span><span>A 7B model swaps heavily on 8&nbsp;GB and is unusable for an interactive CLI, where the user is waiting at a prompt. That ceiling was obvious from the start.</span></li>
+        <li><span class="b">→</span><span>Less obvious, and only discovered by measuring (§6): a <strong>4B</strong> model is <em>also</em> out of reach, not because of the model weights alone but because of the <em>context window the real prompt demands.</em></span></li>
+      </ul>
+      <p>That last point deserves its own sentence, because it is the hinge of the whole hardware story. The classifier prompt, the instructions, the operation vocabulary, the repo-state description, the few-shot framing, is roughly <strong>5,800 tokens.</strong> A classifier that silently truncates its own instructions is not a classifier; it is a random number generator with good manners. So the context window cannot be shrunk to make a bigger model fit: the prompt sets a floor of <code>num_ctx ≥ 2048</code>, and a 4B model at 2048 context is precisely the combination that, as §6 shows, crashed the machine. On 8&nbsp;GB there is no safe operating point above 3B for this prompt. The small model is not a starting point I intended to grow out of, it is the ceiling.</p>
+      <p>These two constraints (<em>local</em> and <em>8&nbsp;GB</em>) are what make this a hard case rather than a routine NL-interface exercise. Remove either (allow a hosted model, or target a 16&nbsp;GB+ machine) and the obvious LLM-at-the-core design might well work. The interesting engineering lives entirely inside the box those constraints draw.</p>
+    </section>
+
+    <!-- 3 -->
+    <section data-reveal>
+      <h2><span class="num">03</span>System design</h2>
+      <p>This section describes only as much of the system as is needed to make the result in §5 interpretable. The tool does considerably more (recovery, forensics, a repo-state machine) but the part that matters for the argument is how a natural-language request becomes a concrete, safe operation.</p>
+      <h3>3.1&nbsp;&nbsp;A five-layer pipeline</h3>
+      <p>A request flows through five stages, each narrowing ambiguity until the executor receives something fully concrete. The direction is one-way; no stage reaches back.</p>
+      <figure data-reveal>
+        <img src="../images/five-layer-pipeline.png" alt="The five-layer pipeline: Context, Intent, Situation gate, Resolve, Validate/gate, Execute">
+      </figure>
+      <p>The design rule that ties the layers together is the tool’s central safety invariant: <strong>the language model reads intent; it never executes.</strong> By the time an operation reaches Layer 4, every field is concrete and has passed a gate. The model’s influence ends at Layer 1, it proposes <em>what the user means</em>, never <em>what the machine does</em>. This separation is what makes it acceptable to put an unreliable model in the loop at all: a wrong classification produces, at worst, a gate offering the wrong choice (which the user sees and rejects) not a wrong destructive action.</p>
+      <h3>3.2&nbsp;&nbsp;Three engines for Layer 1</h3>
+      <figure data-reveal>
+        <img src="../images/multi-layer-routing.png" alt="The three-engine intent funnel: exact fast-path, embedding router, LLM fallback, each abstaining upward">
+      </figure>
+      <p>The one layer this report is about (intent classification) is not a single mechanism but three, tried in increasing order of cost:</p>
+      <ul>
+        <li><span class="b">⚡</span><span><strong>Exact fast-path.</strong> A whitelist of exact phrases (after trim and lowercase, never substring matching) that map directly to an operation. Instant, no model call. This is the cheapest and most reliable engine, and it is also the source of the trap described in §5: it is correct on exactly the phrasings it enumerates and useless on everything else.</span></li>
+        <li><span class="b">✦</span><span><strong>Embedding router.</strong> A new stage (developed as the direct result of the §5 measurement, and detailed in §4) that embeds the request using the <em>already-loaded</em> model and routes paraphrases to a known operation by nearest-exemplar similarity, deliberately conservative, and abstaining whenever it is not confident or the operation is destructive.</span></li>
+        <li><span class="b">◉</span><span><strong>LLM.</strong> The full local model with the ~5,800-token classifier prompt, emitting structured JSON. In the intended design this was the primary engine. In the shipped design it is the <em>fallback</em>, reached only when the cheaper engines abstain, and it carries the one thing they genuinely cannot: open-ended semantic judgment on novel phrasings.</span></li>
+      </ul>
+      <p>Each engine hands off to the next by <em>abstaining</em>, and abstention always degrades to a more capable engine, never to a wrong answer. That single rule (abstain, never guess) is what lets me compose three imperfect classifiers into something safe, and it recurs throughout the design.</p>
+      <h3>3.3&nbsp;&nbsp;The model routes; deterministic gates decide</h3>
+      <p>The one place this separation is most load-bearing is destructive operations. Consider “undo my last commit.” The model’s entire job is to recognize that this is <em>undo-family language</em> and route it to a single ambiguous <code>UndoIntent</code>. It does <strong>not</strong> choose what “undo” means, whether to keep the changes staged, keep them in the working tree, make an inverse commit, or discard them outright. That decision belongs to a deterministic <strong>ChoiceGate</strong> that presents all four options, each with its consequence spelled out, and requires an explicit typed confirmation before anything irreversible. The model gets the user <em>to</em> the gate; the gate (plain code, fully testable) owns the outcome.</p>
+      <p>This is the mechanism that makes the §5 result survivable. When I show, there, that the model misroutes “throw away my changes” to a destructive reset, the reason that is a <em>finding</em> rather than a <em>disaster</em> is this gate: in the shipped tool, destructive phrasings never reach the model as a free choice at all. The measurement tells me where the model is unreliable; the architecture ensures the unreliability cannot cost a user their work.</p>
+    </section>
+
+    <!-- 4 -->
+    <section data-reveal>
+      <h2><span class="num">04</span>The embedding router</h2>
+      <p>The embedding router is the piece of engineering I am most pleased with, because it turns the 8&nbsp;GB constraint from a limitation into the enabling condition for the fix. It did not exist in the original design; it was built in direct response to the measurement in §5, once that measurement made clear that the problem was structural and not a matter of a few missing rules.</p>
+      <h3>4.1&nbsp;&nbsp;The idea: reuse the model you already loaded</h3>
+      <p>The failure mode §5 documents is that paraphrases fall through the exact fast-path to a ~41% model. The obvious robustness fix (semantic routing by embedding similarity) usually means running a second, dedicated embedding model. On 8&nbsp;GB, alongside a resident 3B generation model, that is exactly the kind of second process I could not afford.</p>
+      <p>The move that makes it viable: the local runtime will produce embeddings from the <em>already-loaded generation model</em> through its <code>/api/embed</code> endpoint. There is no second model, no second set of weights, no additional resident memory, the same <code>qwen2.5:3b</code> that serves as the LLM fallback also serves as the embedding backbone for the router. On the machine where a second model was unaffordable, the router costs <em>nothing extra</em>. This is the whole reason the router is deployable at all, and it is a direct dividend of having been forced to think within 8&nbsp;GB.</p>
+      <p>At startup the router embeds a small table of hand-written <em>exemplar</em> phrasings, a few per known operation. At request time it embeds the query once and routes to the operation whose nearest exemplar has the highest cosine similarity. Adding coverage for a new way of phrasing something is therefore adding an example sentence, not writing a rule, which is precisely the property the exact fast-path lacks.</p>
+      <h3>4.2&nbsp;&nbsp;Why it is conservative by construction</h3>
+      <p>An embedding router that simply routed to the top match would be worse than the LLM, not better, because it fails in ways that are dangerous rather than merely wrong. Measuring it (§5.3) surfaced three properties that dictate a conservative design:</p>
+      <ol>
+        <li><span class="b"></span><span><strong>Absolute cosine is not a confidence signal.</strong> A decoder model repurposed for embeddings produces high similarities even for nonsense: “make me a sandwich” lands at cosine ≈ 0.84 against its nearest Git operation. There is no absolute threshold that means “I don’t know.” I therefore rank by the <strong>margin</strong> between the top-1 and top-2 operations, not by absolute similarity.</span></li>
+        <li><span class="b"></span><span><strong>Margins can be thin, and thin margins are where errors live.</strong> On close calls the correct answer sometimes wins or loses by a hundredth. A margin gate cannot be a clean separator; it can only distinguish “confidently one operation” from “too close to call.” So the router <em>abstains</em> below a calibrated margin (0.015, measured against the real binary’s embeddings, not the harness’s), handing the query to the LLM.</span></li>
+        <li><span class="b"></span><span><strong>It cannot reject out-of-scope input.</strong> Nonsense routes confidently to <em>something</em>. The router has no notion of “this isn’t a Git request.”</span></li>
+      </ol>
+      <p>The design that follows from these three facts is deliberately narrow. The router acts <em>only</em> when all of the following hold: the query is not trivially short; the top operation is on a small allowlist of <strong>safe, argument-free</strong> operations (status, log, fetch, merge-preview, plain push, pull); and the margin clears the threshold. For a few <strong>argument-bearing</strong> safe operations (scoped push, squash, amend), it uses the embedding to pick the <em>operation</em> but extracts the <em>argument</em>, the count, the branch, the message, with the existing deterministic captures, abstaining if the argument cannot be extracted. Every destructive or context-sensitive operation (undo, cleanup, discard, force-push, reset, checkout, branch) is excluded from routing entirely and always falls to the LLM or a gate.</p>
+      <p>Two safety properties fall out of this. Any embedding error is a silent abstain, never a hard failure. And abstaining always degrades to <em>exactly</em> the unchanged LLM path, the router can only ever make the tool faster or leave it unchanged, never worse.</p>
+      <h3>4.3&nbsp;&nbsp;A regression the design caught</h3>
+      <p>The value of building the conservative version, rather than trusting the clean result I first saw on an informal handful of phrasings, before the 44-case set existed, showed up immediately. In an early version I included the “which branch am I on / show config” operations in the safe-routable allowlist. On the labeled set, this quietly broke out-of-scope rejection: generic non-Git questions (“what time is it,” “make me a sandwich”) embedded nearest to the “where am I” family, cleared the margin, and routed confidently to <code>git branch</code> instead of being handed to the LLM, which <em>can</em> say “I don’t know.”</p>
+      <p>The fix is instructive about the whole philosophy: I dropped <code>branches</code> and <code>config</code> from the safe-routable set but <em>kept them as exemplars</em>. Now nonsense still lands near them, and because they are no longer routable, landing there produces an <strong>abstain</strong>, which is exactly what I want. The cost is that a legitimate “where am I right now” now falls to the LLM instead of routing instantly. That is a trade I take every time: erring toward abstain is always safe, and I would rather a valid read be a little slower than an invalid request be executed confidently.</p>
+    </section>
+
+    <!-- 5 -->
+    <section data-reveal>
+      <h2><span class="num">05</span>Evaluation</h2>
+      <p>The central question is narrow and answerable: <strong>how good is each classification engine, on its own, at routing a natural-language request to the correct Git operation?</strong> To answer it I built a throwaway evaluation harness (it ships nothing; it lives in the repo under <code>docs/classifier_eval/</code>) over a labeled set of phrasings, and ran two engines against it, the real LLM classifier with the production prompt, and the embedding nearest-neighbor router, on the same model, <code>qwen2.5:3b</code>.</p>
+      <h3>5.1&nbsp;&nbsp;Method</h3>
+      <p>The eval set is <strong>44 labeled phrasings</strong>, deliberately <em>mixed</em> rather than adversarial-only, so that one set exercises every part of the classifier at once. Its buckets: 5 <strong>canonical</strong> (the one exact phrasing per operation, the easy case, included as a control), 12 <strong>unseen</strong> paraphrases, 16 across five <strong>scope/argument variant</strong> families drawn from real acceptance-test failures (commit, scope, sync, squash, amend), 5 <strong>safety</strong> (destructive phrasings), 4 <strong>out-of-scope</strong> (non-Git input), and 2 <strong>tricky</strong> edge cases. Each case is labeled with the operation it should route to.</p>
+      <p>One methodological choice matters for reading the numbers: <strong>the exact fast-path is bypassed.</strong> The whole point is to measure the two <em>fallback</em> engines, what happens to everything the exact whitelist does <em>not</em> catch, because that is the population that determines real-world robustness. Including the fast-path would measure a lookup table and flatter every engine. So the canonical bucket is present as a control, not because it is representative of what breaks: a reader should read the 41%/64% headline as accuracy over a <em>mixed</em> set that includes easy cases, and the by-bucket breakdown (§5.4) as where the real separation lives. When a phrasing is <em>not</em> one enumerated in advance, what routes it?</p>
+      <h3>5.2&nbsp;&nbsp;Headline result</h3>
+      <figure class="bleed" data-reveal>
+        <img src="../images/llm-vs-embadding.png" alt="Bar chart comparing LLM and embedding router: 41% vs 64% accuracy, 9.8s vs 283ms latency, 4/4 vs 0/4 out-of-scope rejection">
+      </figure>
+      <div class="tbl-cap">Table 1. Per-engine routing on the 44-case set (fast-path bypassed).</div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>LLM (<code>qwen2.5:3b</code>)</th><th>Embedding router</th></tr></thead>
+        <tbody>
+          <tr><td>Routing accuracy</td><td><strong>41%</strong> (18/44)</td><td><strong>64%</strong> (28/44)</td></tr>
+          <tr><td>Median latency</td><td>9.8 s</td><td><strong>283 ms</strong> (~35× faster)</td></tr>
+          <tr><td>Out-of-scope rejection</td><td><strong>4/4</strong></td><td>0/4</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>Two things are true at once, and both matter. Across the mixed set the embedding router is <em>more accurate and far faster</em> than the LLM, a 23-point accuracy gain and a ~35× latency improvement, on the same model, at no extra memory. And the LLM has one capability the router structurally lacks: it can say “this isn’t a Git request” (4/4 vs 0/4 on out-of-scope). Neither is a classifier I would ship on its own. That tension is the entire argument for the layered design.</p>
+      <h3>5.3&nbsp;&nbsp;The decisive finding: neither engine is safe alone</h3>
+      <p>Accuracy is the headline, but it is not the finding. The finding is in the <strong>safety</strong> bucket, and it is that <em>both</em> engines misroute destructive requests in ways that would cost a user their work:</p>
+      <ul>
+        <li><span class="b">→</span><span>The <strong>LLM</strong> routes “throw away my changes” and “discard my local commits” straight to a destructive <code>reset</code>, instead of to the deterministic cleanup gate that should own that decision.</span></li>
+        <li><span class="b">→</span><span>The <strong>embedding router</strong> routes “undo the last three commits” to <code>squash</code>, an operation that would silently rewrite three commits into one, when the correct behavior is to <em>halt</em> and ask, because a multi-commit undo is exactly the case the tool must never guess at.</span></li>
+      </ul>
+      <p>This is why §3.3 is load-bearing and not decoration. Whichever engine routes, the destructive neighborhood cannot be trusted to either of them on a thin margin. The only safe design is the one the tool ships: destructive phrasings are excluded from the router entirely, and the LLM never selects the destructive <em>semantic</em>, it only routes undo-family language <em>to a gate</em> that a deterministic policy owns. The measurement did not just rank the engines; it told me exactly which decisions I was forbidden to delegate to either of them.</p>
+      <h3>5.4&nbsp;&nbsp;By bucket</h3>
+      <figure class="bleed" data-reveal>
+        <img src="../images/routing-accurancy-by-bucket.png" alt="Grouped bar chart of routing accuracy by bucket. Embeddings dominate the variant families; LLM wins canonical and out-of-scope; both fail the safety bucket.">
+      </figure>
+      <div class="tbl-cap">Table 2. Routing accuracy by bucket (fast-path bypassed). Rows sum to all 44 cases.</div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Bucket (n)</th><th>LLM</th><th>Embedding</th><th>Takeaway</th></tr></thead>
+        <tbody>
+          <tr><td>variant, scope, M04 (4)</td><td>0/4</td><td><strong>4/4</strong></td><td>embeddings fix the real scope failures</td></tr>
+          <tr><td>variant, squash, M19 (3)</td><td>0/3</td><td><strong>3/3</strong></td><td>ditto</td></tr>
+          <tr><td>variant, commit, M03 (3)</td><td>1/3</td><td><strong>3/3</strong></td><td>ditto</td></tr>
+          <tr><td>variant, sync, M10 (3)</td><td>1/3</td><td><strong>2/3</strong></td><td>ditto</td></tr>
+          <tr><td>variant, amend, M20 (3)</td><td>0/3</td><td><strong>1/3</strong></td><td>both weak on amend phrasing; the fast-path captures carry it live</td></tr>
+          <tr><td>unseen paraphrases (12)</td><td>4/12</td><td><strong>8/12</strong></td><td>embeddings ~2× on phrasing nobody enumerated</td></tr>
+          <tr><td>canonical (5)</td><td><strong>5/5</strong></td><td>3/5</td><td>LLM wins on trivial exacts, but the fast-path covers these live</td></tr>
+          <tr><td>tricky (2)</td><td>2/2</td><td>2/2</td><td>both handle the two edge cases</td></tr>
+          <tr><td>out-of-scope (4)</td><td><strong>4/4</strong></td><td>0/4</td><td>only the LLM can reject non-Git input</td></tr>
+          <tr><td>safety, destructive (5)</td><td>1/5</td><td>2/5</td><td><strong>both fail (see §5.3)</strong></td></tr>
+          <tr class="total"><td>total</td><td>18/44 (41%)</td><td>28/44 (64%)</td><td></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="note"><p>The five variant families are the phrasing paraphrases behind real acceptance-test failures (§5.5); the embedding sweep across them (4/4, 3/3, 3/3, 2/3, 1/3) is the eval’s clearest signal. These are <em>measured numbers from a logged run at temperature 0</em>; the reproducibility details are in Appendix A.</p></div>
+      <p>The bucket breakdown is the layered architecture, justified line by line. Embeddings dominate exactly where real users vary their phrasing (the five variant families and the unseen paraphrases), which is where the field failures came from. The LLM wins only on the canonical bucket, which the <em>exact fast-path</em> already handles at zero cost live, and on out-of-scope rejection, which is a genuine, unique capability worth keeping the LLM in the loop for. And both engines fail the safety bucket, which is why neither is trusted with it. No single engine’s column is one I would ship; the shipped design is the union of each engine’s strengths with a hard rule that the destructive bucket belongs to neither.</p>
+      <h3>5.5&nbsp;&nbsp;Field validation</h3>
+      <p>The eval is a controlled measurement on 44 cases; the tool was also put through a <strong>31-case manual acceptance suite</strong> (M-00 through M-30) that exercises the real release binary end-to-end, gate rendering, copy, refusals, destructive safety, recovery, across two releases. This is the check that the eval’s conclusions actually hold in the shipped tool, not just in the harness.</p>
+      <ul>
+        <li><span class="b">→</span><span><strong>v0.2.0</strong> (before the architecture change): <strong>19 pass, 4 pass-with-defects, 8 fail.</strong> The failures clustered into three root causes, two of which are directly the subject of this report: an argument/target-extraction cluster (scope, branch names, sync target, squash count, amend all dropped or misrouted) and a systemic exit-code bug; the third was a phantom-reset execution bug.</span></li>
+        <li><span class="b">→</span><span><strong>v0.3.0</strong> (after the deterministic-first hybrid and the router): <strong>40 pass, 2 pass-with-defects, 0 fail</strong>, the same 31 cases, with several expanded into phrasing-variant sub-cases (e.g. three ways to say “commit everything”), totalling 42.</span></li>
+      </ul>
+      <p>The variant cases are the eval’s thesis reproduced in the field. Four paraphrases that <em>failed</em> in v0.2.0, “save my changes” (commit), “last three commits” (squash), “reword the last commit” (amend-message), “pull main into feature” (sync), every one of them failed specifically because it fell through the exact fast-path to the LLM, which misrouted it. Every one was fixed not by improving the model but by moving it to a deterministic capture or the router. And the tool’s live behavior confirms the §5.3 safety finding directly: “undo the last 3 commits” is a passing test <em>because the tool halts and offers guidance</em> instead of acting, the exact behavior the raw embedding router (which wanted to squash) would have gotten wrong.</p>
+      <p>The two remaining pass-with-defects are worth naming honestly, because they mark the boundary of what this report’s technique fixes. Both are <em>scope-quality</em> defects, not routing defects: given the correctly-identified operation “scoped push,” the resolver over-included on one case (“api_client” pulled into a “login” push) and under-included on another (a “docs” push that omitted the README). Routing (the problem this report is about) is solved; deciding <em>which files</em> belong to a fuzzy feature name is a different and harder problem, discussed as future work in §9.</p>
+    </section>
+
+    <!-- 6 -->
+    <section data-reveal>
+      <h2><span class="num">06</span>The model-swap study: would a bigger model just fix this?</h2>
+      <p>The natural objection to everything above is the simplest one: if the 3B model routes at 41%, stop working around it and use a better model. This section is the measurement that closes off that objection on the target hardware. It is a second negative result, and it is arguably more important than the first, because it is what turns “the model is weak” into “the model <em>cannot be made stronger here</em>, so the architecture must carry the weight.”</p>
+      <h3>6.1&nbsp;&nbsp;The question and the candidates</h3>
+      <p>I asked directly: is there a local model that would serve the classifier better than <code>qwen2.5:3b</code> on this machine? The realistic candidates one step up were 4B-class models, <code>qwen3:4b</code> and <code>phi4-mini</code> (~3.8B), both around 2.5&nbsp;GB. Anything 7B or larger was ruled out on first principles: it swaps on 8&nbsp;GB and is unusable interactively, which no accuracy gain redeems for a tool the user waits on at a prompt.</p>
+      <h3>6.2&nbsp;&nbsp;The hardware wall</h3>
+      <p>The result was unambiguous and physical: <strong>on 8&nbsp;GB, the 4B upgrade is not deployable, for a reason that has nothing to do with accuracy.</strong> Recall from §2 that the real classifier prompt is ~5,800 tokens and therefore requires <code>num_ctx ≥ 2048</code>. That combination (a 4B model at 2048 context) is precisely what I could not run safely.</p>
+      <div class="tbl-cap">Table 3. Candidate models on the 8 GB target (real ~5,800-token prompt, num_ctx 2048).</div>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Model</th><th>Steady free RAM</th><th>Median latency</th><th>Verdict on 8&nbsp;GB</th></tr></thead>
+        <tbody>
+          <tr><td><code>qwen2.5:3b</code> (current)</td><td>~23%</td><td><strong>9.4 s</strong></td><td>fine, the deployed model</td></tr>
+          <tr><td><code>qwen3:4b</code></td><td>~19% (at the edge)</td><td>17.8 s (~1.9×)</td><td><strong>OOM-crashed the machine at full load; unsafe</strong></td></tr>
+          <tr><td><code>phi4-mini</code> (3.8B)</td><td>~19%</td><td>slower</td><td>same memory class; JSON-reliability issues; no gain shown</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p>The full 44-case run at 2048 context with a 4B model did not merely run slowly, it exhausted memory and took the host down. Under heavy throttling I could keep a 4B model alive, but only hovering around 19% free memory, which is not an operating point I would ship a user onto, and still at roughly <strong>1.9× the latency</strong> of the 3B model (17.8 s vs 9.4 s median). The smaller alternative one might reach for instead, a 3B Llama, was ruled out from the other direction: at 3B its structured-JSON emission was unreliable (a large fraction of responses failed to parse), which is a downgrade for a classifier whose entire output contract is JSON.</p>
+      <p>The conclusion is structural, not incidental: <strong>there is no safe operating point above 3B for this prompt on 8&nbsp;GB.</strong> You cannot shrink the context to fit a bigger model, because the prompt sets the floor; and you cannot fit the bigger model at that floor, because the machine will not hold it. The model I have is not a stepping stone to a better one, on this hardware it is the ceiling, and that is exactly why the intelligence has to live in the layers around it.</p>
+      <h3>6.3&nbsp;&nbsp;What this does and does not claim</h3>
+      <p>To be precise about scope: this is not a claim that 4B models are worse classifiers than 3B models. Very likely a 4B model, given room to run, would route <em>better</em>. The claim is narrower and, for a tool that must ship on real hardware, more decisive: on the 8&nbsp;GB target, the better model is <em>unavailable</em> at the context this task requires, and the ~1.9× latency it costs where it does run buys an improvement I could not even measure without risking the machine. If the tool were ever retargeted at 16&nbsp;GB-plus hardware, this is the one experiment worth re-running (§9), and the harness to do it, along with the methodology fixes described next, already exists.</p>
+    </section>
+
+    <!-- 7 -->
+    <section data-reveal>
+      <h2><span class="num">07</span>Threats to validity</h2>
+      <p>I include this section in full, and at some length, because the honest accounting <em>is</em> the contribution as much as the numbers are. A measurement is only worth as much as the reader’s ability to see how it could be wrong. The most useful thing I learned building the eval harness is that on constrained hardware, benchmarking bugs do not announce themselves as bugs, they announce themselves as <em>interesting results</em>.</p>
+      <h3>7.1&nbsp;&nbsp;Internal validity: three bugs that produced convincing false numbers</h3>
+      <figure class="meme" data-reveal>
+        <img src="../images/this-is-fine-dog.png" alt="The 'This is fine' dog meme — me reading a 0% accuracy score that was actually a config bug">
+      </figure>
+      <p>Getting a <em>valid</em> comparison took three tries, and each of the first two produced numbers that looked like findings and were in fact artifacts. I report them not as trivia but as the central cautionary lesson of the project.</p>
+      <ol>
+        <li><span class="b"></span><span><strong>No unload between models.</strong> The local runtime keeps a model resident for minutes after use. On 8&nbsp;GB, running one model’s eval and then the next with the first still resident forces the second into swap, inflating its latency by a factor that has nothing to do with the model. The fix, evict each model (<code>keep_alive: 0</code>) and pause before loading the next, was pointed out to me as a question (“are you stopping the other model before testing the next?”) and it was exactly right. Any latency comparison taken before that fix is meaningless.</span></li>
+        <li><span class="b"></span><span><strong>A reasoning model emitting hidden output.</strong> One 4B candidate defaults to emitting a hidden chain-of-thought block before its answer. Under a capped output budget, that block consumed the entire budget and the model returned an <em>empty</em> response, which the harness scored as a parse failure. The raw numbers looked catastrophic and definitive (0% accuracy, every case a parse failure, an absurd load time). None of it was a statement about the model’s classification ability; it was a statement about a flag I had not set. Disabling the thinking mode produced a completely different, valid run.</span></li>
+        <li><span class="b"></span><span><strong>Silent context truncation.</strong> To reduce memory pressure I once set the context window to 1,024 tokens. The prompt is ~5,800 tokens. The runtime silently truncated ~80% of the classifier’s own instructions, and every model’s accuracy collapsed to single digits. This one is the most dangerous of the three, because the numbers were not absurd, they were merely <em>low</em>, and low numbers are easy to believe about a small model.</span></li>
+      </ol>
+      <p>The reason none of these three ever made it into the results above is a single sanity check I came to trust: <strong>the known baseline.</strong> <code>qwen2.5:3b</code> routes at ~40% on the full set; whenever a run showed it “dropping” far below that, the tell was that the <em>harness</em>, not the model, had changed. A dramatic number that moves the baseline is a bug until proven otherwise. I would offer that as the one transferable lesson of this whole evaluation: on constrained hardware, always keep one number you already trust in every run, and disbelieve any result that moves it.</p>
+      <p>After the OOM crash described in §6, every subsequent run also carried a memory watchdog that aborts the benchmark if free memory drops below a threshold twice in a row, so that measurement can never again take the machine down. That is a guardrail on the <em>method</em>, and it belongs in the threats section precisely because the method had already failed once.</p>
+      <h3>7.2&nbsp;&nbsp;External validity</h3>
+      <p>The evidence is deliberately narrow: one tool, one model family (<code>qwen2.5:3b</code>, with 4B candidates for the swap study), one machine (Apple M2, 8&nbsp;GB), one domain (Git operations), and one author-labeled set of 44 cases. I make no claim that these numbers transfer to other models, larger hardware, or other domains. The <em>pattern</em> in §8 may generalize; the <em>numbers</em> in §5 should not be read as anything but this system on this machine.</p>
+      <h3>7.3&nbsp;&nbsp;Construct validity</h3>
+      <p>The eval scores routing against a single “correct” operation per case, and I chose strict labels: the LLM emitting <code>push</code> where the label is <code>scoped_push</code>, or <code>commit</code> where the label is <code>add_commit</code>, is scored as a miss even though the behavior is arguably reasonable. This means the LLM’s 41% <em>understates</em> its “sensible-ish” behavior. I kept the strict scoring deliberately, for two reasons: it is the same standard applied to both engines, so the comparison is fair; and the dangerous misses that drive the paper’s actual conclusion (routing a destructive request to a destructive op) are not label artifacts under any reasonable relabeling. The headline gap might narrow under looser labels; the safety finding would not move.</p>
+      <h3>7.4&nbsp;&nbsp;Conclusion validity</h3>
+      <p>N = 44 is small, and I treat the specific percentages as directional, not precise, “the LLM is in the 40s, the router in the 60s, and neither is safe on the destructive bucket” is the load I ask the numbers to bear, not “41.0 vs 64.0.” The field validation in §5.5 (a separately-constructed 31-case acceptance suite, run on the real binary across two releases) exists precisely so the conclusion does not rest on the 44-case harness alone.</p>
+    </section>
+
+    <!-- 8 -->
+    <section data-reveal>
+      <h2><span class="num">08</span>Discussion</h2>
+      <h3>8.1&nbsp;&nbsp;Deterministic-first as a general pattern</h3>
+      <p>Strip away Git and the shape of what I built is a pattern for constructing reliable behavior on top of an unreliable model, which I would state as three rules:</p>
+      <ol>
+        <li><span class="b"></span><span><strong>Tier by cost and confidence.</strong> Put the cheapest, most reliable mechanism first (exact match), then a cheap semantic layer (embeddings), then the expensive model, and have each <em>abstain upward</em> rather than guess. Most requests never reach the expensive, unreliable layer.</span></li>
+        <li><span class="b"></span><span><strong>Let the model route, but never let it decide.</strong> The model’s output should select <em>which deterministic policy runs</em>, not <em>what irreversible thing happens</em>. Every high-stakes decision is owned by code you can test, behind a gate the user sees.</span></li>
+        <li><span class="b"></span><span><strong>Abstain, never guess.</strong> Every layer’s failure mode should be to hand off to a more capable layer, never to take a wrong action. Safe degradation is a design property you build in, not a behavior you hope for.</span></li>
+      </ol>
+      <p>None of these is novel in isolation; the contribution is showing, with numbers, <em>why</em> they are forced rather than optional when the model is genuinely weak and the actions are genuinely dangerous.</p>
+      <h3>8.2&nbsp;&nbsp;Where the LLM does earn its place</h3>
+      <p>This is not an argument against local models. The LLM keeps two jobs that nothing cheaper can do, and both are visible in the data. It is the only engine that can <em>reject out-of-scope input</em> (§5.2, 4/4 vs 0/4), a real capability, kept by leaving it as the fallback. And it is the right tool for the one genuinely open-ended judgment in the system: given a correctly-identified operation, deciding <em>which files</em> belong to a fuzzy feature name like “the login changes.” That is not a routing problem with a closed answer set; it is semantic judgment over content, and it is exactly the kind of task a language model <em>should</em> own. The two remaining acceptance-suite defects (§5.5) live entirely there, which is the right place for the system’s remaining imprecision to sit.</p>
+      <h3>8.3&nbsp;&nbsp;The economic point</h3>
+      <p>Once the exact fast-path and the router carry the common phrasings, the LLM is invoked on a shrinking minority of requests. That reframes the model-swap question economically: a “smarter” fallback improves a slice of traffic that keeps getting smaller, at a fixed cost of more RAM and ~1.9× latency on every call it does handle. On this hardware the trade never clears. The right move was not to buy a better brain but to need it less often.</p>
+    </section>
+
+    <!-- 9 -->
+    <section data-reveal>
+      <h2><span class="num">09</span>Limitations and future work</h2>
+      <p><strong>Problem B: fuzzy file scoping.</strong> The one problem this report does not solve is the resolver’s job of deciding which files belong to a named feature. The two remaining acceptance defects are both here: one over-inclusive, one under-inclusive, and they are not routing bugs; they are the model answering “is this file related to X?” inconsistently over raw diffs. Two directions are open, and I have deliberately not committed to one: embed the diff and the feature word and rank by similarity (the same technique that worked for routing), or be honest about the model’s uncertainty, widen the “uncertain” bucket and let the user toggle, rather than forcing a confident related/unrelated split the model cannot actually support. The second is less impressive and probably more correct.</p>
+      <p><strong>Larger hardware.</strong> Every hardware conclusion in §6 is contingent on 8&nbsp;GB. The single most valuable follow-up is to re-run the model-swap study on a 16&nbsp;GB-plus machine, where a 4B (or 7B) model can hold the required context. The harness exists, and (importantly) the three methodology bugs of §7.1 are already fixed in it, so that re-run would start from a trustworthy baseline rather than rediscovering the same artifacts.</p>
+      <p><strong>Scope of the eval.</strong> A larger, multi-annotator labeled set would let the percentages carry more weight than the “directional” reading §7.4 asks of them. I chose depth of honesty over breadth of N for a solo project; a natural extension is breadth.</p>
+    </section>
+
+    <!-- 10 -->
+    <section data-reveal>
+      <h2><span class="num">10</span>Conclusion</h2>
+      <p>I set out to build a tool whose intelligence was a local language model, and I finished having measured that the model was the weakest component in it. That is not a failure of the tool; it is the tool’s most useful output. The architecture that followed, exact matching and a memory-free embedding router for the common cases, deterministic gates for every dangerous decision, and the model demoted to a fallback for genuine novelty, is more robust to phrasing, ~35× faster on the cases it handles without the model, and safe by construction on exactly the operations where the measurement proved the model could not be trusted.</p>
+      <p>The transferable lesson is not about Git, and it is not that local models are bad. It is that in an era where “add an LLM” is the reflexive architecture, the LLM’s competence at the specific job, on the specific hardware, is a hypothesis to be <em>measured</em>, and that when the measurement comes back weak, the right response is often to build the intelligence <em>around</em> the model rather than to keep waiting for a better one. On constrained hardware especially, the scaffolding may be the product.</p>
+    </section>
+
+    <!-- appendices -->
+    <section data-reveal>
+      <h2><span class="num">A</span>Reproducibility</h2>
+      <p>Everything below is in the tool’s repository; the eval harness ships nothing into the binary and lives under <code>docs/classifier_eval/</code>.</p>
+      <ul>
+        <li><span class="b">→</span><span><strong>Model:</strong> <code>qwen2.5:3b</code> via Ollama, for both the LLM classifier and the embedding router (<code>/api/embed</code> on the same loaded model). Swap-study candidates: <code>qwen3:4b</code>, <code>phi4-mini</code>.</span></li>
+        <li><span class="b">→</span><span><strong>Hardware:</strong> Apple M2, 8&nbsp;GB unified memory, 8 cores.</span></li>
+        <li><span class="b">→</span><span><strong>Decode settings:</strong> temperature 0, <code>top_k</code> 1, <code>top_p</code> 0.1, <code>num_ctx</code> 2048, for determinism.</span></li>
+        <li><span class="b">→</span><span><strong>Prompt:</strong> the production classifier prompt read directly from the binary’s source, not a re-creation, so the eval measures what ships.</span></li>
+        <li><span class="b">→</span><span><strong>Eval set:</strong> 44 labeled cases across seven buckets (<code>eval_set.json</code>); operation exemplars for the router (<code>exemplars.json</code>); harness <code>run_eval.py</code> and <code>compare_models.py</code>.</span></li>
+        <li><span class="b">→</span><span><strong>Known-good baseline:</strong> <code>qwen2.5:3b</code> routes at ~40% on the full 44-case set with the fast-path bypassed. Any run that moves this number is suspect until explained (§7.1).</span></li>
+      </ul>
+    </section>
+
+  </div>
+  </article>
+
+  <!-- ============ COMPANION ============ -->
+  <div class="wrap">
+    <div class="companion" data-reveal>
+      <div class="eyebrow">/ Companion pieces</div>
+      <div class="comp-grid">
+        <a class="comp-card" href="casestudy.html">
+          <div class="k">Case study</div>
+          <div class="t">Deterministic-First</div>
+          <div class="d">The architecture here, generalized into a reusable pattern for building on any unreliable model.</div>
+          <div class="go">Read the pattern →</div>
+        </a>
+        <a class="comp-card" href="blog.html">
+          <div class="k">Blog</div>
+          <div class="t">I Measured the AI and Took Most of It Out</div>
+          <div class="d">The short, narrative version of how the project unfolded, for a broad audience.</div>
+          <div class="go">Read the story →</div>
+        </a>
+        <a class="comp-card" href="https://github.com/Aniketdalvi385/gitrust" target="_blank" rel="noopener">
+          <div class="k">Source</div>
+          <div class="t">GiTrust on GitHub</div>
+          <div class="d">The tool itself, Rust, ~20k LOC, ~197 tests, MIT-licensed.</div>
+          <div class="go">View the repo ↗</div>
+        </a>
+      </div>
+    </div>
+
+    <footer class="foot">
+      <span>© 2026 Aniket Dalvi</span>
+      <a href="#top">Back to top ↑</a>
+    </footer>
+  </div>
+
+</main>
+
+<script>
+(function(){
+  var root=document.documentElement, tog=document.getElementById('themeToggle'), lbl=document.getElementById('themeLabel');
+  function sysDark(){return window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;}
+  try{var saved=localStorage.getItem('ad_theme'); if(saved) root.setAttribute('data-theme',saved);}catch(e){}
+  function cur(){var a=root.getAttribute('data-theme'); if(a) return a; return sysDark()?'dark':'light';}
+  function sync(){lbl.textContent=cur()==='dark'?'Dark':'Light';}
+  sync();
+  tog.addEventListener('click',function(){var n=cur()==='dark'?'light':'dark'; root.setAttribute('data-theme',n); try{localStorage.setItem('ad_theme',n);}catch(e){} sync();});
+
+  var pb=document.getElementById('progress');
+  function prog(){var h=document.documentElement.scrollHeight-window.innerHeight; pb.style.width=(h>0?(window.scrollY/h*100):0)+'%';}
+  window.addEventListener('scroll',prog,{passive:true}); prog();
+
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduce&&'IntersectionObserver'in window){
+    var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});},{threshold:0.1,rootMargin:'0px 0px -6% 0px'});
+    document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+  } else { document.querySelectorAll('[data-reveal]').forEach(function(el){el.classList.add('in');}); }
+})();
+</script>
+</body>
+</html>

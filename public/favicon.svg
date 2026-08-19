@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="AD">
+  <!--
+    Favicons composite over browser chrome, which may be light or dark, and an
+    SVG loaded as an icon cannot reliably read the page's colour scheme. So the
+    mark carries its own ground: a solid plate with the letters knocked out.
+    That reads at 16px on any chrome, and keeps the nav mark's square silhouette.
+  -->
+  <rect width="32" height="32" rx="2" fill="#0f0e0c" />
+  <!-- Hairline inset edge: on dark chrome the plate would otherwise merge into
+       the background and leave the letters floating. Keeps the nav mark's
+       square-with-a-border silhouette legible on any ground. -->
+  <rect
+    x="1.25"
+    y="1.25"
+    width="29.5"
+    height="29.5"
+    rx="1.25"
+    fill="none"
+    stroke="#faf8f4"
+    stroke-opacity="0.22"
+    stroke-width="1.5"
+  />
+
+  <!-- "AD" as paths — JetBrains Mono is unavailable to an externally rendered
+       SVG, and a font-family reference would silently fall back. -->
+  <g fill="#faf8f4">
+    <!-- A -->
+    <path d="M5.6 23.4 9.7 8.6h2.9l4.1 14.8h-2.6l-.9-3.3H9l-.9 3.3H5.6Zm4-5.5h3.2l-1.6-6-1.6 6Z" />
+    <!-- D -->
+    <path d="M17.8 23.4V8.6h4.3c1.6 0 2.8.6 3.6 1.7.8 1.1 1.2 2.8 1.2 5v1.4c0 2.2-.4 3.9-1.2 5-.8 1.1-2 1.7-3.6 1.7h-4.3Zm2.5-2.3h1.8c.9 0 1.5-.3 1.9-1s.6-1.8.6-3.4v-1.4c0-1.6-.2-2.7-.6-3.4-.4-.7-1-1-1.9-1h-1.8v10.2Z" />
+  </g>
+</svg>

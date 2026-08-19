@@ -1,0 +1,214 @@
+---
+import { SITE } from "../data/site";
+---
+
+<noscript>
+	<style>
+		.loader {
+			display: none !important;
+		}
+	</style>
+</noscript>
+
+<div id="loader" class="loader" data-loader aria-hidden="true">
+	<div class="loader__top">
+		<span class="loader__brand">
+			<span class="loader__mark">{SITE.initials}</span>{SITE.name.toUpperCase()}
+		</span>
+		<span>PORTFOLIO — ©{SITE.year}</span>
+	</div>
+
+	<div class="loader__mid">
+		<div class="loader__count" data-count>000</div>
+		<div class="loader__status">LOADING</div>
+	</div>
+
+	<div class="loader__bar"><div class="loader__fill" data-loadfill></div></div>
+</div>
+
+<style>
+	/* Hidden unless the blocking head script opted this load in. Defaulting to
+	   hidden is what prevents a one-frame flash on repeat visits. */
+	.loader {
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 300;
+		background: var(--bg);
+		color: var(--fg);
+		flex-direction: column;
+		justify-content: space-between;
+		padding: clamp(40px, 7vw, 110px);
+		transform: translateY(0);
+		transition: transform 0.82s var(--ease-veil);
+	}
+	:global(html[data-preload]) .loader {
+		display: flex;
+	}
+	/* Wipes upward once the count completes. */
+	.loader[data-done] {
+		transform: translateY(-101%);
+	}
+	/* Removed from the layer entirely after the wipe. */
+	.loader[hidden],
+	:global(html[data-preload]) .loader[hidden] {
+		display: none;
+	}
+
+	.loader__top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.1em;
+		color: var(--mut);
+	}
+
+	.loader__brand {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.loader__mark {
+		width: 22px;
+		height: 22px;
+		border: 1px solid var(--fg);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font: 600 var(--t-micro) "JetBrains Mono", monospace;
+		color: var(--fg);
+		flex: none;
+	}
+
+	.loader__mid {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 20px;
+	}
+
+	.loader__count {
+		font: 600 var(--t-counter) / 0.78 "Clash Display", sans-serif;
+		letter-spacing: -0.045em;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.loader__status {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.14em;
+		color: var(--mut);
+		padding-bottom: clamp(12px, 2vw, 30px);
+		animation: blink 1.1s ease-in-out infinite;
+	}
+
+	.loader__bar {
+		height: 2px;
+		background: var(--line);
+		position: relative;
+		overflow: hidden;
+	}
+
+	/* scaleX, not width — this runs during first paint, the most contended moment
+	   of the page's life, where a layout-triggering property competes with the
+	   browser still parsing, styling and painting everything else. */
+	.loader__fill {
+		position: absolute;
+		left: 0;
+		top: 0;
+		height: 100%;
+		width: 100%;
+		transform: scaleX(0);
+		transform-origin: left;
+		background: var(--fg);
+		transition: transform 0.12s linear;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.loader {
+			transition: none;
+		}
+		.loader__status {
+			animation: none;
+		}
+	}
+</style>
+
+<script>
+	const loader = document.querySelector<HTMLElement>("[data-loader]");
+	const countEl = loader?.querySelector<HTMLElement>("[data-count]");
+	const fillEl = loader?.querySelector<HTMLElement>("[data-loadfill]");
+
+	// Whether to run at all was decided before paint by the blocking head script
+	// (ThemeScript.astro), which stamps html[data-preload] and claims the session
+	// slot. Deciding here would flash the loader for a frame on repeat visits.
+	if (loader && document.documentElement.hasAttribute("data-preload")) {
+		let finished = false;
+		const finish = () => {
+			if (finished) return;
+			finished = true;
+			loader.setAttribute("data-done", "");
+			// Released here; the head script set it before first paint.
+			document.documentElement.style.overflow = "";
+			// Drop it from the layer once the wipe has played.
+			window.setTimeout(() => loader.setAttribute("hidden", ""), 880);
+		};
+
+		window.scrollTo(0, 0);
+
+		const DURATION = 1500;
+		// Start the clock on the first *rendered* frame, not at parse time. Other
+		// deferred module scripts run between parse and that frame — the monogram
+		// rasterises and samples ~28k points, tens of ms of blocked main thread —
+		// and any such work was silently counted as elapsed progress, so the
+		// counter jumped straight from 000 to a high number.
+		let start = 0;
+
+		// Near-linear pacing. The original `1-(1-t)²` is an ease-out: it reached
+		// 010 in 77ms and 025 in 201ms, so the low digits flashed past unreadably
+		// while the last few crawled. On a counter the digits *are* the content,
+		// so the rate has to stay roughly even; 1.12 keeps a slight ease-out so
+		// it settles into 100 rather than stopping dead.
+		const render = (now: number) => {
+			if (!start) start = now;
+			const t = Math.min(1, (now - start) / DURATION);
+			const n = Math.round((1 - Math.pow(1 - t, 1.12)) * 100);
+			if (countEl) countEl.textContent = String(n).padStart(3, "0");
+			if (fillEl) fillEl.style.transform = "scaleX(" + (n / 100).toFixed(4) + ")";
+			return t;
+		};
+
+		// Drive the count from BOTH rAF and a wall-clock interval.
+		//
+		// rAF alone cannot survive a busy main thread: it simply does not fire
+		// while the thread is blocked, so a single long task freezes the counter
+		// and the next frame lands far ahead — the observed 004 → 100 jump. The
+		// interval keeps ticking across those stalls, so the number continues to
+		// climb; whichever callback runs first paints, and both read the same
+		// clock, so they cannot disagree or double-count.
+		let done = false;
+		const tick = (now: number) => {
+			if (done) return;
+			if (render(now) >= 1) {
+				done = true;
+				window.clearInterval(iv);
+				finish();
+			}
+		};
+
+		const iv = window.setInterval(() => tick(performance.now()), 40);
+		const frame = (now: number) => {
+			if (done) return;
+			tick(now);
+			if (!done) requestAnimationFrame(frame);
+		};
+		requestAnimationFrame(frame);
+
+		// Fail-safe: rAF is throttled in background tabs, so guarantee the loader
+		// clears and scrolling is restored even if frames never run. The extra
+		// headroom covers the gap between parse and the first frame, which the
+		// count no longer charges against its own duration.
+		window.setTimeout(finish, DURATION + 1200);
+	}
+</script>

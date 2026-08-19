@@ -1,0 +1,269 @@
+---
+import { EXPERIENCE } from "../data/site";
+---
+
+<section id="experience" class="experience">
+	<div class="experience__head" data-reveal>
+		<h2>EXPERIENCE</h2>
+		<span class="range">2023 — NOW</span>
+	</div>
+
+	<div class="experience__list" data-reveal-group>
+		{
+			// Source order is dates → org → body, which is the reading order when the
+			// rails collapse to one column. On wide viewports the grid places the
+			// dates in the right rail without moving them in the DOM, so assistive
+			// tech keeps the sensible sequence.
+			EXPERIENCE.map((e) => (
+				<div class="entry">
+					<div class="dates">{e.dates}</div>
+
+					<div class="entry__org">
+						<div class="company">{e.company}</div>
+						<div class="detail">{e.meta}</div>
+					</div>
+
+					<div class="entry__body">
+						<h3>{e.role}</h3>
+						<ul>
+							{e.points.map((pt) => (
+								<li>
+									<span class="bullet" aria-hidden="true">
+										→
+									</span>
+									<span>{pt}</span>
+								</li>
+							))}
+						</ul>
+					</div>
+				</div>
+			))
+		}
+	</div>
+</section>
+
+<style>
+	.experience {
+		position: relative;
+		padding: clamp(72px, 8vw, 128px) var(--gutter);
+		/* Rails: org, prose, a spacer that absorbs all leftover width, then the
+		   dates. The spacer sits *before* the dates so the dates stay on the
+		   section's right edge — where the head's "2023 — NOW" already is, keeping
+		   those two aligned — while the prose still stops at its own measure
+		   instead of stretching to fill the section. */
+		--rails: 200px fit-content(62ch) 1fr max-content;
+		--rail-gap: clamp(20px, 3vw, 56px);
+	}
+
+	.experience__head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		padding-bottom: clamp(28px, 3vw, 42px);
+	}
+
+	h2 {
+		margin: 0;
+		font: 600 var(--t-label) "JetBrains Mono", monospace;
+		letter-spacing: 0.04em;
+	}
+
+	.range {
+		font: 500 var(--t-mono-lg) "JetBrains Mono", monospace;
+		color: var(--mut-2);
+	}
+
+	/* Unruled, as in the design — the 30–46px entry padding is the separator. */
+
+	/* Three content rails — org left, role and body centre, dates right — plus a
+	   spacer. Everything was once packed into a 200px left column, which capped
+	   the prose at 72ch and left ~415px dead against the section's right edge.
+
+	   The middle track is `fit-content`, not `1fr`. With `1fr` it absorbed every
+	   spare pixel while the text inside stayed capped at its own measure, so the
+	   two drifted apart as the viewport grew: 180px of dead rail at 1440px, 598px
+	   at 1920px, 1238px at 2560px. That is what made the section look unaligned —
+	   the role <h3> stretched to the full rail while its own bullets stopped
+	   short, so a heading and its list had different right edges, and two entries
+	   with different-length titles produced a ragged column of dates.
+
+	   The spacer is the third rail, *before* the dates, so the dates keep the
+	   section's right edge and stay aligned with the head's "2023 — NOW" directly
+	   above them. Putting the spacer last instead — pulling the dates in beside
+	   the prose — was tried and looked worse: it orphaned that header, and the
+	   whole section then clustered into the left two-thirds with ~760px empty
+	   beside it. The gap between prose and date is a rail, and the header
+	   alignment is what makes it read as one. */
+	.entry {
+		display: grid;
+		grid-template-columns: var(--rails);
+		gap: var(--rail-gap);
+		padding: clamp(30px, 3.4vw, 46px) 0;
+	}
+
+	/* Placed explicitly — the dates come first in the DOM so the collapsed
+	   layout reads sensibly, which rules out auto-placement. */
+	.entry__org {
+		grid-column: 1;
+		grid-row: 1;
+	}
+	.entry__body {
+		grid-column: 2;
+		grid-row: 1;
+		/* The rail's own bound, and the one that governs the entry's right edge.
+		   Previously nothing capped the rail, so `fit-content` sized it to the
+		   widest child — the role title — and the bullets underneath fell short of
+		   it by up to 121px. Worse, two entries with different-length titles got
+		   different rail widths, which is why the dates formed a ragged column.
+		   Capping here in body-font `ch` (the measure that actually matters for
+		   reading) means the title wraps to the prose width instead of setting it,
+		   so every entry shares one edge regardless of its title. */
+		max-width: 58ch;
+		font-size: var(--t-body);
+	}
+	.dates {
+		grid-column: 4;
+		grid-row: 1;
+		text-align: right;
+		/* One line, always. At a fixed 132px the longest range
+		   ("SEP 2023 — FEB 2024", ~137px at 12px mono) overflowed its track and
+		   dropped "2024" to a second line; `max-content` on the track plus
+		   nowrap here sizes the rail to its widest date instead of guessing. */
+		white-space: nowrap;
+		font-family: "JetBrains Mono", monospace;
+		font-weight: 500;
+		font-size: var(--t-mono-lg);
+		color: var(--mut);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.company {
+		font: 600 var(--t-body-lg) "General Sans", sans-serif;
+		letter-spacing: -0.01em;
+	}
+
+	.detail {
+		margin-top: 6px;
+		font: 400 var(--t-mono-lg) / 1.5 "General Sans", sans-serif;
+		color: var(--mut);
+	}
+
+	h3 {
+		margin: 0 0 18px;
+		font: 500 var(--t-title-sm) "General Sans", sans-serif;
+		letter-spacing: -0.02em;
+		/* No `ch` cap here. `ch` is font-relative, and this is set at 26-36px, so
+		   58ch resolved to 900-1246px — far too wide to ever bind. The measure is
+		   bounded once on .entry__body below, in body-font `ch`, and the heading
+		   simply wraps inside it. */
+		text-wrap: balance;
+	}
+
+	ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+
+	li {
+		display: grid;
+		/* Second track sized by content so the max-width below actually binds —
+		   a bare 1fr stretches the span and the cap never applies. */
+		grid-template-columns: 16px minmax(0, max-content);
+		gap: 10px;
+		font: 400 var(--t-body) / 1.6 "General Sans", sans-serif;
+		color: var(--mut);
+	}
+	/* Cap the text column, not the grid row — the bullet glyph sits in its own
+	   track, so a max-width on the <li> never binds. The middle rail now bounds
+	   the measure on both sides, so this is a backstop for very wide viewports
+	   rather than the primary constraint it was when the column ran full width. */
+	li > span:last-child {
+		/* 58ch. Note `ch` is font-relative, so raising --t-body's ceiling to 17px
+		   widened every ch-based cap on the site — 66ch still measured ~77
+		   characters after that change. Verified at 1440px, not assumed. */
+		max-width: 58ch;
+	}
+
+	.bullet {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--fg);
+		padding-top: 3px;
+	}
+
+	/* Three rails need more width than two. Below ~1080px the middle column gets
+	   squeezed before anything else, so the dates fold up beside the org and the
+	   body takes the full remaining width. */
+	@media (max-width: 1080px) {
+		.entry {
+			grid-template-columns: 200px minmax(0, 1fr);
+		}
+		.dates {
+			grid-column: 1;
+			grid-row: 1;
+			text-align: left;
+			margin-bottom: 10px;
+		}
+		.entry__org {
+			grid-column: 1;
+			grid-row: 2;
+			align-self: start;
+		}
+		.entry__body {
+			grid-column: 2;
+			grid-row: 1 / span 2;
+		}
+	}
+
+	@media (max-width: 800px) {
+		.entry {
+			grid-template-columns: 1fr;
+		}
+		/* Fully stacked: dates, then org, then the role and points. Explicit
+		   placement rather than `order` so the visual sequence matches source. */
+		.dates,
+		.entry__org,
+		.entry__body {
+			grid-column: 1;
+			grid-row: auto;
+		}
+		.entry__org {
+			margin-bottom: 18px;
+		}
+	}
+
+	@media (max-width: 640px) {
+		/* The 30px padding sits *inside* each entry, so stacked the two jobs
+		   touched exactly — measured 0px between them, less separation than
+		   between the bullets within one entry. The list supplies the gap
+		   instead, so the space around a group exceeds the space inside it.
+		   Whitespace, not a rule — see "lines are rationed" in CLAUDE.md. */
+		.experience__list {
+			display: flex;
+			flex-direction: column;
+			gap: 56px;
+		}
+		.entry {
+			padding: 0;
+		}
+
+		/* The date is the first thing in each entry and the anchor for the block,
+		   but it was also the smallest and dimmest thing on screen. Full contrast
+		   and a little more room below it makes it read as a heading for the job
+		   rather than as a stray caption. */
+		.dates {
+			color: var(--fg);
+			margin-bottom: 14px;
+		}
+
+		/* The bullets carry the detail, so they get the measure back: at 16px the
+		   glyph column plus its gap took 26px off a 312px line. */
+		li {
+			grid-template-columns: 12px minmax(0, 1fr);
+			gap: 8px;
+		}
+	}
+</style>

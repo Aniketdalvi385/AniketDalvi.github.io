@@ -1,0 +1,221 @@
+---
+import { ABOUT_FACTS, SKILLS } from "../data/site";
+---
+
+<section id="about" class="about">
+	<!-- Outside the grid: on mobile the two columns are reordered so the lede
+	     leads, and with the heading inside the facts column it travelled down
+	     with them — the section opened with an unlabelled paragraph and said
+	     "ABOUT" two thirds of the way through. -->
+	<h2 data-reveal>ABOUT</h2>
+	<div class="about__grid">
+		<div data-reveal>
+			<dl class="facts">
+				{
+					ABOUT_FACTS.map((f) => (
+						<div class="fact">
+							<dt>{f.k}</dt>
+							<dd set:html={f.v} />
+						</div>
+					))
+				}
+			</dl>
+			<div class="chips">
+				{SKILLS.map((sk) => <span class="chip">{sk}</span>)}
+			</div>
+		</div>
+
+		<div data-reveal>
+			<p class="lede">
+				Most of what I build runs unattended on somebody's daily workflow, which
+				is a different problem from making a model work once.
+			</p>
+			<div class="body">
+				<p>
+					Nearly three years at the delivery end of AI products. Ingestion
+					pipelines, retrieval, templating engines, permissions, and the
+					automation that keeps them running after launch.
+				</p>
+				<p>
+					Editorial intelligence across 12 sector verticals. A publishing
+					workflow serving 5,000+ daily subscribers. Internal tooling for the
+					analyst teams who depend on it daily.
+				</p>
+				<p>
+					I work in a team of three to four and usually own my systems end to end: 
+					architecture, implementation, testing, deployment. 
+					Most of what I ship carries domain constraints and non-technical users.
+				</p>
+				<p>
+					I measure what I build. On my last project I benchmarked my own intent
+					classifier at 41% accuracy, published the result, and rebuilt the
+					architecture around it.
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<style>
+	.about {
+		position: relative;
+		padding: clamp(72px, 8vw, 128px) var(--gutter);
+	}
+
+	/* Both columns are content-bounded — the facts list needs ~460px (a 65px
+	   label plus the 267px widest value) and `.body` caps at a 60ch reading
+	   measure — so neither grows past ~1200px. Left to fractional tracks the
+	   surplus viewport pooled on one side: first as a 370px void inside the
+	   facts list, then as 495px of dead track past the prose at 1920.
+	   `space-between` puts that surplus in the middle instead, so the section
+	   spans gutter to gutter: facts flush left, prose flush right. */
+	.about__grid {
+		display: grid;
+		grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+		gap: clamp(30px, 5vw, 80px);
+	}
+
+	@media (min-width: 1200px) {
+		.about__grid {
+			grid-template-columns: 460px minmax(0, 60ch);
+			justify-content: space-between;
+		}
+	}
+
+	h2 {
+		margin: 0 0 clamp(28px, 3vw, 42px);
+		font: 600 var(--t-label) "JetBrains Mono", monospace;
+		letter-spacing: 0.04em;
+	}
+
+	.facts {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+
+	.fact {
+		display: flex;
+		justify-content: space-between;
+		gap: 16px;
+		font: 400 var(--t-mono-lg) "JetBrains Mono", monospace;
+	}
+
+	dt {
+		color: var(--mut);
+	}
+
+	dd {
+		margin: 0;
+		color: var(--fg);
+		text-align: right;
+	}
+
+	.lede {
+		margin: 0 0 clamp(24px, 2.4vw, 34px);
+		font: 400 var(--t-lede) / 1.4 "General Sans", sans-serif;
+		letter-spacing: -0.015em;
+		max-width: 32ch;
+		text-wrap: balance;
+	}
+
+	/* A container, not a paragraph: the copy is four distinct paragraphs, and
+	   blank lines inside one <p> collapse to a single space — they rendered as
+	   an unbroken wall. Spacing comes from the flex gap so there are no margins
+	   to collapse against the chips below. */
+	.body {
+		display: flex;
+		flex-direction: column;
+		gap: 1.05em;
+		max-width: 60ch;
+	}
+
+	.body p {
+		margin: 0;
+		font: 400 var(--t-body) / 1.65 "General Sans", sans-serif;
+		color: var(--mut);
+		text-wrap: pretty;
+	}
+
+	/* The closing line is the section's point — it lands rather than trails off.
+	   Contrast only: same face, same weight, same size, so it reads as emphasis
+	   rather than as a second lede competing with the one above. */
+	.body p:last-child {
+		color: var(--fg);
+	}
+
+	.chips {
+		margin-top: 34px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.chip {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+		padding: 8px 14px;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		transition: box-shadow 0.2s var(--ease-out), background 0.2s var(--ease-out);
+	}
+	.chip:hover {
+		background: var(--faint);
+		box-shadow: var(--wash);
+	}
+
+	@media (max-width: 900px) {
+		.about__grid {
+			grid-template-columns: 1fr;
+		}
+		/* Stacked, the facts list inherits the full content width and
+		   `space-between` reopens the same void the desktop cap closed — 406px
+		   between "EDUCATION" and its value at 900px. The list is a label/value
+		   pair, not a full-width table, so it keeps its own measure here. */
+		.facts {
+			max-width: 460px;
+		}
+	}
+
+	@media (max-width: 640px) {
+		/* The lede is the section's opening statement, but stacked it landed
+		   third — after the facts and fifteen skill chips — so the argument only
+		   started a third of the way down the section. Ordering puts the prose
+		   column first, as it is on desktop, and drops the supporting detail
+		   below it. `order` on the grid items, so the DOM order (which is the
+		   desktop reading order) is untouched. */
+		.about__grid > :nth-child(1) {
+			order: 2;
+		}
+		.about__grid > :nth-child(2) {
+			order: 1;
+		}
+		/* `space-between` on a 312px row produced gaps of 182/125/16/125/103px —
+		   "DOMAINS" almost touching its value while "BASED" had 182px of void,
+		   and nothing aligned on either edge. The 460px cap above cannot help at
+		   this width. Stacking the pair gives every fact the same shape and one
+		   left edge to read down. */
+		.fact {
+			flex-direction: column;
+			gap: 3px;
+		}
+		dd {
+			text-align: left;
+		}
+		.facts {
+			gap: 18px;
+		}
+
+		/* 32px against the 44px minimum, fifteen times over. */
+		.chip {
+			min-height: 44px;
+			display: inline-flex;
+			align-items: center;
+		}
+		.chips {
+			gap: 7px;
+			margin-top: 28px;
+		}
+	}
+</style>

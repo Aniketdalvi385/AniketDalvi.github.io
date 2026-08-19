@@ -1,0 +1,379 @@
+---
+import Base from "../layouts/Base.astro";
+import BackOverscroll from "../components/BackOverscroll.astro";
+import Ticker from "../components/Ticker.astro";
+import { SITE, WRITING_TICKER } from "../data/site";
+import { getFeatured } from "../data/writing";
+
+const { featured: FEATURED, rest: POSTS } = await getFeatured();
+const total = POSTS.length + (FEATURED ? 1 : 0);
+---
+
+<Base
+	title={`Writing — ${SITE.name}`}
+	description="Notes on shipping AI: systems, LLM tooling, and things learned in production."
+	homeHref="/"
+>
+	<!-- Fixed overlays — no effect on page flow. -->
+	<BackOverscroll
+		href="/"
+		veilLabel="02 — JOURNAL"
+		veilTitle="Writing"
+		exitLabel="01 — PORTFOLIO"
+		exitTitle="Work"
+	/>
+
+	<section id="top" class="masthead">
+		<div class="masthead__head" data-reveal>
+			<span class="eyebrow">/ NOTES ON SHIPPING AI · FULL-STACK · AUTOMATION</span>
+			<span class="eyebrow">({String(total).padStart(2, "0")}) ENTRIES</span>
+		</div>
+		<h1 data-reveal>Writing<span class="stroke">.</span></h1>
+		<p class="standfirst" data-reveal>
+			Engineering decisions, measurements, and questions I haven't settled yet.
+		</p>
+	</section>
+
+	<div class="ticker-wrap">
+		<Ticker words={WRITING_TICKER} separator="/" variant="mono" duration="26s" />
+	</div>
+
+	{
+		FEATURED && (
+			<section class="featured">
+				<a class="feat" href={FEATURED.href} data-reveal>
+					<div>
+						{/* Carries its tag like every row in the list below — without
+						    it the lead entry was the one item on the page with no
+						    subject label. */}
+						<div class="feat__meta">
+							<span class="feat__flag">FEATURED</span>
+							<span>·</span>
+							<span>{FEATURED.tag}</span>
+							<span>·</span>
+							<span>{FEATURED.date}</span>
+							<span>·</span>
+							<span>{FEATURED.read}</span>
+						</div>
+						<h2 class="feat__title">{FEATURED.listTitle}</h2>
+					</div>
+					<div>
+						<p class="feat__excerpt">{FEATURED.excerpt}</p>
+						<span class="feat__cta">READ →</span>
+					</div>
+				</a>
+			</section>
+		)
+	}
+
+	<section class="list" data-reveal-group>
+		{
+			POSTS.map((w) => (
+				<a class="row" href={w.href}>
+					<span class="row__date">{w.date}</span>
+					<span class="row__body">
+						<span class="row__title">{w.listTitle}</span>
+						<span class="row__excerpt">{w.excerpt}</span>
+					</span>
+					<span class="row__tag">{w.tag}</span>
+					<span class="row__read">{w.read}</span>
+				</a>
+			))
+		}
+	</section>
+
+	<!-- Ordinary link at the foot of the page, as in the design. Clicking it
+	     leaves through the same veil transition as the gesture. -->
+	<a class="back" href="/" data-prev>
+		<div class="back__head">
+			<!-- The upward gesture is wheel-only, so the scroll instruction is
+			     swapped for a tap one on coarse pointers — same treatment as the
+			     homepage's forward block. -->
+			<span class="eyebrow eyebrow--fine">↑ KEEP SCROLLING UP</span>
+			<span class="eyebrow eyebrow--coarse">← TAP TO GO BACK</span>
+			<span class="eyebrow">BACK TO PORTFOLIO</span>
+		</div>
+		<div class="back__title">Selected <span class="stroke">Work</span></div>
+	</a>
+</Base>
+
+<style>
+	.masthead {
+		padding: 148px var(--gutter) 0;
+	}
+
+	.masthead__head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 16px;
+	}
+
+	.eyebrow {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.16em;
+		color: var(--mut-2);
+	}
+
+	h1 {
+		margin: clamp(20px, 3vw, 36px) 0 0;
+		font: 600 var(--t-display-xl) / 0.86 "Clash Display", sans-serif;
+		letter-spacing: -0.045em;
+	}
+
+	.standfirst {
+		margin: clamp(24px, 3vw, 40px) 0 0;
+		max-width: 56ch;
+		font: 400 var(--t-body-lg) / 1.6 "General Sans", sans-serif;
+		color: var(--mut);
+	}
+
+	.ticker-wrap {
+		margin-top: clamp(50px, 6vw, 90px);
+	}
+
+	/* ---- featured entry ---- */
+	.featured {
+		padding: clamp(50px, 6vw, 90px) var(--gutter) 0;
+	}
+
+	.feat {
+		display: grid;
+		grid-template-columns: 1.1fr 1fr;
+		gap: clamp(28px, 4vw, 64px);
+		align-items: end;
+		padding: clamp(20px, 2.2vw, 30px) clamp(16px, 1.8vw, 26px)
+			clamp(40px, 5vw, 70px);
+		border-radius: 2px;
+		transition: box-shadow 0.2s var(--ease-out), background 0.2s var(--ease-out);
+	}
+	.feat:hover {
+		background: var(--faint);
+		box-shadow: var(--wash-lg);
+	}
+
+	.feat__meta {
+		display: flex;
+		gap: 14px;
+		margin-bottom: 22px;
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+	}
+	.feat__flag {
+		color: var(--fg);
+	}
+
+	.feat__title {
+		margin: 0;
+		font: 600 var(--t-display-sm) / 1.02 "General Sans", sans-serif;
+		letter-spacing: -0.03em;
+	}
+
+	.feat__excerpt {
+		margin: 0 0 20px;
+		max-width: 52ch;
+		font: 400 var(--t-body) / 1.6 "General Sans", sans-serif;
+		color: var(--mut);
+	}
+
+	.feat__cta {
+		font: 500 var(--t-mono) "JetBrains Mono", monospace;
+		letter-spacing: 0.05em;
+	}
+
+	.list {
+		padding: 0 var(--gutter);
+	}
+
+	.row {
+		display: grid;
+		grid-template-columns: 120px 1fr minmax(160px, 220px) 80px;
+		align-items: center;
+		gap: clamp(16px, 2vw, 28px);
+		padding: clamp(26px, 3vw, 40px) clamp(16px, 1.8vw, 26px);
+		border-radius: 2px;
+		transition: box-shadow 0.2s var(--ease-out), background 0.2s var(--ease-out);
+	}
+	.row:hover {
+		background: var(--faint);
+		box-shadow: var(--wash);
+	}
+
+	.row__date {
+		font-family: "JetBrains Mono", monospace;
+		font-weight: 500;
+		font-size: var(--t-mono-lg);
+		color: var(--mut);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.row__body {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.row__title {
+		font: 500 var(--t-title-sm) "General Sans", sans-serif;
+		letter-spacing: -0.02em;
+	}
+
+	.row__excerpt {
+		font: 400 var(--t-body) / 1.5 "General Sans", sans-serif;
+		color: var(--mut);
+		max-width: 64ch;
+	}
+
+	.row__tag,
+	.row__read {
+		font: 400 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+	}
+	/* Longhand size so the shorthand above cannot reset font-variant-numeric. */
+	.row__read {
+		justify-self: end;
+		font-size: var(--t-mono);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.disclaimer {
+		margin: 18px 0 0;
+		font: 400 var(--t-mono) "JetBrains Mono", monospace;
+		color: var(--mut);
+	}
+
+	.back {
+		display: block;
+		position: relative;
+		margin-top: clamp(60px, 8vw, 120px);
+		background: var(--card);
+		padding: clamp(40px, 6vw, 90px) var(--gutter);
+		/* Both halves of the hover at one speed. At 0.55s the wash arrived a third
+		   of a second after the shadow had already landed, so a single hover
+		   visibly animated at two rates. */
+		transition: background 0.2s var(--ease-out),
+			box-shadow 0.2s var(--ease-out);
+	}
+	.back:hover {
+		background: var(--faint);
+		box-shadow: var(--wash-lg);
+	}
+
+	.back__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 20px;
+		margin-bottom: 18px;
+	}
+
+	.eyebrow--coarse {
+		display: none;
+	}
+	@media (pointer: coarse) {
+		.eyebrow--fine {
+			display: none;
+		}
+		.eyebrow--coarse {
+			display: inline;
+		}
+	}
+
+	.back__title {
+		font: 600 var(--t-display) / 0.94 "Clash Display", sans-serif;
+		letter-spacing: -0.04em;
+	}
+
+	.stroke {
+		-webkit-text-stroke: clamp(1px, 0.18vw, 2px) var(--fg);
+		color: transparent;
+	}
+
+	/* At display size a stroked period reads as a hollow box; keep the stroke
+	   thin so it stays recognisably a full stop. */
+	h1 .stroke {
+		-webkit-text-stroke-width: clamp(1px, 0.1vw, 1.5px);
+	}
+
+	@media (max-width: 900px) {
+		.feat {
+			grid-template-columns: 1fr;
+			align-items: start;
+		}
+	}
+
+	@media (max-width: 800px) {
+		.row {
+			grid-template-columns: 1fr auto;
+			row-gap: 10px;
+		}
+		.row__body {
+			grid-column: 1 / -1;
+			order: 3;
+		}
+	}
+
+	@media (max-width: 640px) {
+		/* Rows touched exactly — 0px between posts, less than the space inside a
+		   row. The list carries the separation now that the row padding is all
+		   vertical. Whitespace, not a rule (see CLAUDE.md). */
+		.list {
+			display: flex;
+			flex-direction: column;
+			gap: 34px;
+		}
+		.row {
+			padding: 0;
+			row-gap: 10px;
+		}
+
+		/* Four spans over two columns left the read time to auto-placement: it
+		   landed on its own line below the date, drifting to x=284 and x=225 on
+		   the two rows while the tag was pinned right. Date and read pair on the
+		   left, tag holds the right edge, body spans beneath — so every row has
+		   the same three-part shape. */
+		.row__date {
+			grid-column: 1;
+			grid-row: 1;
+		}
+		.row__tag {
+			grid-column: 2;
+			grid-row: 1;
+			justify-self: end;
+			align-self: center;
+		}
+		.row__read {
+			grid-column: 1;
+			grid-row: 2;
+			justify-self: start;
+			text-align: left;
+			padding-top: 0;
+		}
+		.row__body {
+			grid-column: 1 / -1;
+			grid-row: 3;
+		}
+
+		/* 148px of an 800px screen before the page says anything — the nav is
+		   fixed at 68px, so this only needs to clear that plus a breath. */
+		.masthead {
+			padding-top: 96px;
+		}
+		/* Wraps to two lines at 360px and competes with the entry count beside
+		   it; the shorter form carries the same information. */
+		.masthead__head {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 6px;
+		}
+
+		/* The featured meta is six inline spans with separators — at 360px it
+		   wrapped mid-item, splitting "2026 · 08" from its own date and stranding
+		   "24 MIN". Wrapping as a row with its own gaps keeps each item whole. */
+		.feat__meta {
+			flex-wrap: wrap;
+			row-gap: 4px;
+		}
+	}
+</style>
