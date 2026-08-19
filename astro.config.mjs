@@ -5,8 +5,27 @@ import mdx from "@astrojs/mdx";
 
 // Repo is <user>.github.io, so the site is served from the domain root and
 // needs no `base` path. `site` powers absolute URLs in canonical tags/sitemaps.
+//
+// The host is resolved at build time rather than hardcoded, because this repo
+// deploys to two places. Netlify injects these:
+//   URL              - the production URL of the site
+//   DEPLOY_PRIME_URL - this specific deploy (branch/preview builds)
+// Preferring DEPLOY_PRIME_URL means a deploy preview's canonical tags point at
+// the preview itself, not at production. Falling through to the Pages domain
+// keeps the GitHub Actions build unchanged, since neither var is set there.
+// `process.env`, not `import.meta.env`. Astro does not expose arbitrary build
+// environment variables through `import.meta.env` in this config file — the
+// lookups silently return undefined and the fallback always wins, which looks
+// correct locally while shipping the wrong canonical host. Verified by building
+// with URL set and checking the emitted <link rel="canonical">. Reading
+// `process.env` needs @types/node, which is a devDependency for this reason.
+const site =
+  process.env.DEPLOY_PRIME_URL ||
+  process.env.URL ||
+  "https://aniketdalvi.github.io";
+
 export default defineConfig({
-  site: "https://aniketdalvi.github.io",
+  site,
 
   build: {
       // Emit /about.html rather than /about/index.html — friendlier on Pages.
