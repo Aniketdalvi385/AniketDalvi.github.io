@@ -7,21 +7,28 @@ import mdx from "@astrojs/mdx";
 // needs no `base` path. `site` powers absolute URLs in canonical tags/sitemaps.
 //
 // The host is resolved at build time rather than hardcoded, because this repo
-// deploys to two places. Netlify injects these:
-//   URL              - the production URL of the site
-//   DEPLOY_PRIME_URL - this specific deploy (branch/preview builds)
-// Preferring DEPLOY_PRIME_URL means a deploy preview's canonical tags point at
-// the preview itself, not at production. Falling through to the Pages domain
-// keeps the GitHub Actions build unchanged, since neither var is set there.
-// `process.env`, not `import.meta.env`. Astro does not expose arbitrary build
+// deploys to more than one place. Netlify injects:
+//   URL              - the site's own production URL (the apex we want)
+//   DEPLOY_PRIME_URL - the URL of *this* deploy
+//
+// CONTEXT is what decides between them. On a production build Netlify still
+// sets DEPLOY_PRIME_URL, and it carries the branch prefix — so preferring it
+// unconditionally canonicalised the live site to
+// `https://main--aniket-dalvi.netlify.app`, a branch-deploy host. That splits
+// SEO signal between two hostnames serving identical content. Production must
+// use URL; only previews and branch deploys should self-canonicalise, so their
+// pages do not tell crawlers to index production instead.
+//
+// `process.env`, not `import.meta.env`: Astro does not expose arbitrary build
 // environment variables through `import.meta.env` in this config file — the
 // lookups silently return undefined and the fallback always wins, which looks
-// correct locally while shipping the wrong canonical host. Verified by building
-// with URL set and checking the emitted <link rel="canonical">. Reading
+// correct locally while shipping the wrong host. Verified by building with
+// these vars set and reading the emitted <link rel="canonical">. Reading
 // `process.env` needs @types/node, which is a devDependency for this reason.
 const site =
-  process.env.DEPLOY_PRIME_URL ||
-  process.env.URL ||
+  (process.env.CONTEXT === "production"
+    ? process.env.URL
+    : process.env.DEPLOY_PRIME_URL || process.env.URL) ||
   "https://aniketdalvi.github.io";
 
 export default defineConfig({

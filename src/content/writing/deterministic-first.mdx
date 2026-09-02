@@ -1,6 +1,7 @@
 ---
 title: "Deterministic‑First"
 subtitle: "An architecture pattern for unreliable local models"
+excerpt: "The reusable pattern: tier classifiers cheapest-first, let the model route but never decide, abstain rather than guess."
 date: "2026 · 08"
 published: 2026-08-14
 read: "9 MIN"
@@ -13,7 +14,7 @@ eyebrow: "Case Study · Architecture Pattern · 2026"
 
 <section class="lede">
 
-Most writing about LLM-backed tools assumes the model is the smart part and the code around it is plumbing. Building [GiTrust](https://github.com/Aniketdalvi385/gitrust), a natural-language Git CLI that runs its model locally on an 8&nbsp;GB laptop, taught me the opposite. This piece is the pattern that came out of it, stated so you can apply it to your own tool. The *measurements* that forced the pattern, the eval, the accuracy numbers, the model-swap study, live in the [research paper](/writing/when-the-llm-is-the-weak-link); here I take the finding as given and focus on the design.
+Most writing about LLM-backed tools assumes the model is the smart part and the code around it is plumbing. Building [GiTrust](https://github.com/aniketdalvi385/gitrust), a natural-language Git CLI that runs its model locally on an 8&nbsp;GB laptop, taught me the opposite. This piece is the pattern that came out of it, stated so you can apply it to your own tool. The *measurements* that forced the pattern, the eval, the accuracy numbers, the model-swap study, live in the [research paper](/writing/when-the-llm-is-the-weak-link); here I take the finding as given and focus on the design.
 
 </section>
 
@@ -104,7 +105,7 @@ The surprising part, the thing I didn't expect going in, is *which* part turned 
 		<div class="d">The short version of how this project unfolded, for a broad audience.</div>
 		<div class="go">Read the story →</div>
 	</a>
-	<a class="comp-card plain" href="https://github.com/Aniketdalvi385/gitrust" target="_blank" rel="noopener">
+	<a class="comp-card plain" href="https://github.com/aniketdalvi385/gitrust" target="_blank" rel="noopener">
 		<div class="k">Source</div>
 		<div class="t">GiTrust on GitHub</div>
 		<div class="d">The tool itself, Rust, open source.</div>

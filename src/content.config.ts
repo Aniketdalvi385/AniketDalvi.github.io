@@ -16,8 +16,15 @@ const writing = defineCollection({
 	loader: glob({ base: "./src/content/writing", pattern: "**/*.{md,mdx}" }),
 	schema: z.object({
 		title: z.string(),
-		/** Shown under the title on the article, and as the list excerpt. */
+		/** Shown under the title on the article page. */
 		subtitle: z.string(),
+		/**
+		 * Listing description. Distinct from `subtitle` because listings render
+		 * "title: subtitle" as the headline for short titles — so reusing the
+		 * subtitle as the description repeated it verbatim, one line apart.
+		 * Falls back to `subtitle` when a piece has no separate excerpt.
+		 */
+		excerpt: z.string().optional(),
 		/** Display form, e.g. "2026 · 03". Sorting uses `published`. */
 		date: z.string(),
 		/** ISO date — the actual sort key, so display strings stay free-form. */

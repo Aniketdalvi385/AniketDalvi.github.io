@@ -13,6 +13,7 @@ function toPost(entry: Awaited<ReturnType<typeof getCollection>>[number]): Post 
 		tag: string;
 		read: string;
 		subtitle: string;
+		excerpt?: string;
 	};
 	// Listings show "title: subtitle" only for titles short enough to need the
 	// help. Concatenating unconditionally would push the two already-long
@@ -31,7 +32,11 @@ function toPost(entry: Awaited<ReturnType<typeof getCollection>>[number]): Post 
 		tag: d.tag,
 		read: d.read,
 		href: `/writing/${entry.id}`,
-		excerpt: d.subtitle,
+		// `excerpt` when the entry defines one, else the subtitle. Needed because
+		// `listTitle` above already appends the subtitle for short titles, so
+		// defaulting the description to the subtitle printed the same sentence
+		// twice in the card — headline and description, verbatim.
+		excerpt: d.excerpt ?? d.subtitle,
 	};
 }
 
