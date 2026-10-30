@@ -455,6 +455,21 @@ const label =
 		max-width: min(100%, 440px);
 		border: 0;
 	}
+	/* Inline SVG figures draw with the live tokens (`var(--fg)` etc.), so they
+	   follow the theme toggle — an <img> of an SVG cannot read page variables.
+	   Framed to match the PNG charts above. */
+	.prose figure.svg-fig svg {
+		display: block;
+		box-sizing: border-box;
+		width: 100%;
+		height: auto;
+		max-height: min(78vh, 720px);
+		padding: clamp(12px, 2vw, 24px);
+		border: 1px solid var(--line);
+		border-radius: 2px;
+		background: var(--card);
+		font-family: "General Sans", sans-serif;
+	}
 	.prose figcaption {
 		margin-top: 12px;
 		font: 400 var(--t-mono-lg) "JetBrains Mono", monospace;
