@@ -15,6 +15,17 @@ links:
       href: "https://github.com/aniketdalvi385/gitrust"
 ---
 
+<div class="correction">
+<p class="eyebrow">Correction · 31 October 2026</p>
+
+The 41% (18/44) qwen2.5:3b baseline in this report ran on a truncated prompt. The classifier prompt is about 5,950 tokens, but the harness (and GiTrust v0.3.0 itself) asked Ollama for a 2,048-token context. Ollama silently kept the first 4 tokens and the last 2,044, so the model never saw the system prompt, the operation list or any of the routing rules, only the closing examples. Ollama's own log shows all 44 baseline requests truncated. It is the §7.1 truncation bug at a larger context, and I missed it.
+
+Re-run with the whole prompt (`num_ctx` 8192; same weights, same Ollama 0.21.2, harness otherwise unchanged): **35/44 (80%)**, 4/5 on the safety bucket, about 3.5&nbsp;s per request once warm (40&nbsp;s cold). A control run at 2,048 reproduced 18/44 exactly, bucket for bucket.
+
+What this changes: with its full prompt the LLM beats the embedding router (64%), so §5's headline comparison and the 35× latency gap do not hold as stated. The model-swap runs in §6 were truncated the same way, so their accuracy and latency comparisons do not hold either. The 4B out-of-memory crash at a 2,048 context still happened, and the full prompt needs a larger context, so a 4B model would need more memory, not less. What survives: with the full prompt the LLM still routed "throw away my changes" to `discard_local`, a destructive request sent to a different destructive operation, so the case for deterministic gates stands. The embedding router's 64% is unaffected. The body below is unchanged. Data: [`ctx_audit.py` and its results](https://github.com/aniketdalvi385/gitrust/tree/main/docs/classifier_eval) in the GiTrust repo.
+
+</div>
+
 <div class="abstract">
 <p class="eyebrow">Abstract</p>
 

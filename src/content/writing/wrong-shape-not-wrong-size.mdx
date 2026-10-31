@@ -1,7 +1,7 @@
 ---
 title: "Wrong Shape, Not Wrong Size"
 subtitle: "Reviving GiTrust with a decision model"
-excerpt: "A 0.8B decision model took routing from 41% to 93% on the same 44 requests and the same 8 GB laptop, at a twentieth of the latency. Model type mattered more than size."
+excerpt: "A fine-tuned 0.8B decision model routed 93% of the same 44 requests on the same 8 GB laptop, against 80% for a 3B language model given its whole prompt, at about a seventh of its warm latency. The fine-tune made the difference."
 date: "2026 · 10"
 published: 2026-10-29
 read: "16 MIN"
@@ -17,16 +17,23 @@ links:
       href: "https://huggingface.co/AniketDalvi385/gitrust-kev-0.8b"
 ---
 
+<div class="correction">
+<p class="eyebrow">Correction · 31 October 2026</p>
+
+The 41% baseline for qwen2.5:3b that this post compares against was measured on a truncated prompt: the roughly 5,950-token classifier prompt was sent with a 2,048-token context, and Ollama silently kept only its closing examples. With the whole prompt the same model routes **35/44 (80%)**, at about 3.5&nbsp;s per request once warm and 40&nbsp;s cold. So the fair comparison is **80% → 93%**, and stock Kev (70%) was _below_ the full-prompt language model: the gain came from fine-tuning a decision model, not from switching model type alone. What still holds: Kev never writes text, so there is no JSON to break and no command to invent; its probability can be thresholded; it answers in about 0.5&nbsp;s against 3.5&nbsp;s warm; and the full-prompt LLM still sent "throw away my changes" to a different destructive operation, so the gates stay. The figures below have been updated to match. Data: [`ctx_audit.py` and its results](https://github.com/aniketdalvi385/gitrust/tree/main/docs/classifier_eval).
+
+</div>
+
 <div class="abstract">
 <p class="eyebrow">Abstract</p>
 
-A local decision model fixed the problem that made me park GiTrust: routing accuracy went from 41% to 93% on the same 44 requests, on the same 8&nbsp;GB laptop, at a twentieth of the latency.
+A local decision model fixed the problem that made me park GiTrust: routing accuracy went from 80% to 93% on the same 44 requests (41% as I first measured it, on a truncated prompt), on the same 8&nbsp;GB laptop, at about a seventh of the warm latency.
 
-GiTrust is a command-line safety layer for Git: you say what you want in plain English, and a local model works out which operation you mean. In August 2026 I parked it on a negative result. The local 3B language model (qwen2.5:3b) routed only 41% of a 44-request test set correctly, took about 10&nbsp;s per request, and sent some destructive requests straight to destructive operations. A bigger model did not fit in 8&nbsp;GB. My conclusion then, written up in [When the LLM Is the Weak Link](/writing/when-the-llm-is-the-weak-link), was that the intelligence belongs in deterministic code around a small model, not in the model.
+GiTrust is a command-line safety layer for Git: you say what you want in plain English, and a local model works out which operation you mean. In August 2026 I parked it on a negative result. The local 3B language model (qwen2.5:3b) routed only 41% of a 44-request test set correctly (on a truncated prompt, as I found in October; 80% with the whole prompt), took about 10&nbsp;s per request, and sent some destructive requests straight to destructive operations. A bigger model did not fit in 8&nbsp;GB. My conclusion then, written up in [When the LLM Is the Weak Link](/writing/when-the-llm-is-the-weak-link), was that the intelligence belongs in deterministic code around a small model, not in the model.
 
 In October I came back with a different _kind_ of model. Kev-0.8B is an open re-creation of Jev, TypeSafe's "System One" decision model: it never writes text, it returns a calibrated probability for each option on a list it is given. Stock Kev routed 70%; a fine-tune I trained on a free Colab GPU, with \~1,500 synthetic requests over GiTrust's 36 operations, routed 41/44 (93%) at about 0.5&nbsp;s. Run through the whole tool, it never took a wrong action that changed the repository on 68 phrasings I wrote myself; on 338 written blind by three persona agents, v0.5.0 has one such misroute, and it stops before doing anything.
 
-The August finding survives and gets sharper: the deterministic layers are still what make the tool safe. What was wrong was the corollary that no local model could do better. **Model type mattered more than size.**
+The August finding survives and gets sharper: the deterministic layers are still what make the tool safe. What was wrong was the corollary that no local model could do better. **Model type mattered, but the fine-tune mattered more.**
 
 </div>
 
@@ -105,10 +112,16 @@ The first acceptance runs showed the pattern: every operation worked for its one
 		</thead>
 		<tbody>
 			<tr>
-				<td>`qwen2.5:3b`, the real \~5,800-token classifier prompt</td>
+				<td>`qwen2.5:3b`, the \~5,950-token classifier prompt truncated to 2,048 (as published in August)</td>
 				<td>41%</td>
 				<td>\~10 s</td>
 				<td>4/4</td>
+			</tr>
+			<tr>
+				<td>`qwen2.5:3b`, the whole prompt (re-run 31 October 2026)</td>
+				<td>80%</td>
+				<td>\~3.5 s warm, \~40 s cold</td>
+				<td>not re-measured</td>
 			</tr>
 			<tr>
 				<td>Embedding nearest-neighbour, on the same loaded model</td>
@@ -122,7 +135,7 @@ The first acceptance runs showed the pattern: every operation worked for its one
 
 The accuracy was not the worst of it. **Neither engine was safe alone on destructive requests:** the LLM routed "throw away my changes" straight to `reset`, and the embeddings routed "undo the last three commits" to `squash`.
 
-The model-swap study closed the remaining door. The classifier prompt needs a 2,048-token context; a 4B model at that context OOM-crashed the 8&nbsp;GB M2 and ran \~1.9× slower. Llama 3.2 3B emitted less reliable JSON, a downgrade for a JSON classifier. Three of those benchmark runs also produced convincing but false numbers before a real one — models not unloaded between runs, a hidden `<think>` block emptying the output, a context too small that silently truncated the prompt.
+The model-swap study seemed to close the remaining door: a 4B model OOM-crashed the 8&nbsp;GB M2 even at a 2,048-token context, and the whole prompt needs about 6,500. Its other comparisons (speed, and Llama 3.2 3B's JSON reliability) ran on the same truncated prompt and don't hold; the crash does. Three of those benchmark runs also produced convincing but false numbers before a real one — models not unloaded between runs, a hidden `<think>` block emptying the output, a context too small that silently truncated the prompt — and, as I found in October, so did the baseline itself.
 
 What shipped was a deterministic-first hybrid: exact phrases, then a margin-gated embedding router that abstained on anything destructive, then the LLM as a last resort, with every destructive outcome decided by a deterministic gate. It worked, but the model had been demoted to coarse classification, and Problem B (file scoping) stayed unsolved. My conclusion: **for local Git-intent routing on 8&nbsp;GB, a 3B language model is the wrong tool for the precision this domain needs.**
 
@@ -193,7 +206,7 @@ That shape removes the August failure modes by construction:
 				<td>The prompt is the request plus a fixed option list; the output is a vector of probabilities</td>
 			</tr>
 			<tr>
-				<td>\~10 s per request</td>
+				<td>\~10 s per request on the truncated prompt; \~3.5 s warm and \~40 s cold with the whole prompt</td>
 				<td>One forward pass and a softmax: about 0.5 s on the M2</td>
 			</tr>
 			<tr>
@@ -322,14 +335,14 @@ Problem B uses the same model differently: GiTrust asks Kev one yes/no question 
 
 ## <span class="num">05</span>Results
 
-The fine-tuned Kev-0.8B routes 41/44 (93%) of the August test set in about half a second — more than double the language model's accuracy at a twentieth of its latency, on the same laptop.
+The fine-tuned Kev-0.8B routes 41/44 (93%) of the August test set in about half a second — 13 points more than the 3B language model given its whole prompt (80%), at about a seventh of its warm latency, on the same laptop.
 
 <figure class="bleed svg-fig">
-<svg viewBox="0 60 760 340" role="img" aria-label="A 0.8B decision model routes 93% in 0.5 s; the 3B language model routed 41% in 9.8 s" font-size="12"><line x1="96" x2="700" y1="304.6" y2="304.6" stroke="var(--line)"/><text x="86" y="308.6" text-anchor="end" font-size="11.5" fill="var(--mut)">40%</text><line x1="96" x2="700" y1="233.7" y2="233.7" stroke="var(--line)"/><text x="86" y="237.7" text-anchor="end" font-size="11.5" fill="var(--mut)">60%</text><line x1="96" x2="700" y1="162.9" y2="162.9" stroke="var(--line)"/><text x="86" y="166.9" text-anchor="end" font-size="11.5" fill="var(--mut)">80%</text><line x1="96" x2="700" y1="92.0" y2="92.0" stroke="var(--line)"/><text x="86" y="96.0" text-anchor="end" font-size="11.5" fill="var(--mut)">100%</text><line x1="96" x2="700" y1="340" y2="340" stroke="var(--mut)"/><line x1="96.0" x2="96.0" y1="340" y2="345" stroke="var(--mut)"/><text x="96.0" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">0.1 s</text><line x1="221.2" x2="221.2" y1="340" y2="345" stroke="var(--mut)"/><text x="221.2" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">0.3 s</text><line x1="358.5" x2="358.5" y1="340" y2="345" stroke="var(--mut)"/><text x="358.5" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">1 s</text><line x1="483.7" x2="483.7" y1="340" y2="345" stroke="var(--mut)"/><text x="483.7" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">3 s</text><line x1="621.0" x2="621.0" y1="340" y2="345" stroke="var(--mut)"/><text x="621.0" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">10 s</text><text x="398" y="390" text-anchor="middle" font-size="11.5" fill="var(--mut)">Median time per request (seconds, log scale)</text><text x="24" y="76" font-size="11.5" fill="var(--mut)">Routed correctly</text><circle cx="618.7" cy="301.0" r="5.5" fill="var(--mut)"><title>qwen2.5:3b language model: 41% in 9.8 s</title></circle><text x="606.7" y="299.0" text-anchor="end" fill="var(--fg)">qwen2.5:3b language model</text><text x="606.7" y="314.0" text-anchor="end" font-size="11.5" fill="var(--mut)">41% · 9.8 s</text><circle cx="214.6" cy="219.5" r="5.5" fill="var(--mut)"><title>Embedding router: 64% in 0.283 s</title></circle><text x="202.6" y="217.5" text-anchor="end" fill="var(--fg)">Embedding router</text><text x="202.6" y="232.5" text-anchor="end" font-size="11.5" fill="var(--mut)">64% · 0.283 s</text><circle cx="263.1" cy="198.3" r="5.5" fill="var(--mut)"><title>Kev-0.8B, stock: 70% in 0.433 s</title></circle><text x="275.1" y="196.3" fill="var(--fg)">Kev-0.8B, stock</text><text x="275.1" y="211.3" font-size="11.5" fill="var(--mut)">70% · 0.433 s</text><circle cx="279.5" cy="116.8" r="7" fill="var(--accent)"><title>Kev-0.8B, fine-tuned: 93% in 0.5 s</title></circle><text x="291.5" y="114.8" font-weight="600" fill="var(--fg)">Kev-0.8B, fine-tuned</text><text x="291.5" y="129.8" font-size="11.5" fill="var(--mut)">93% · 0.5 s</text></svg>
-<figcaption>Figure 2. The same 44 requests on an 8&nbsp;GB Apple M2, exact-phrase path bypassed; up and to the left is better. Source: the August 2026 study and docs/kev_migration_research.md.</figcaption>
+<svg viewBox="0 60 760 340" role="img" aria-label="A fine-tuned 0.8B decision model routes 93% in 0.5 s; the 3B language model with its whole prompt routes 80% in 3.5 s warm; the August 41% at 9.8 s was a truncated prompt" font-size="12"><line x1="96" x2="700" y1="304.6" y2="304.6" stroke="var(--line)"/><text x="86" y="308.6" text-anchor="end" font-size="11.5" fill="var(--mut)">40%</text><line x1="96" x2="700" y1="233.7" y2="233.7" stroke="var(--line)"/><text x="86" y="237.7" text-anchor="end" font-size="11.5" fill="var(--mut)">60%</text><line x1="96" x2="700" y1="162.9" y2="162.9" stroke="var(--line)"/><text x="86" y="166.9" text-anchor="end" font-size="11.5" fill="var(--mut)">80%</text><line x1="96" x2="700" y1="92.0" y2="92.0" stroke="var(--line)"/><text x="86" y="96.0" text-anchor="end" font-size="11.5" fill="var(--mut)">100%</text><line x1="96" x2="700" y1="340" y2="340" stroke="var(--mut)"/><line x1="96.0" x2="96.0" y1="340" y2="345" stroke="var(--mut)"/><text x="96.0" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">0.1 s</text><line x1="221.2" x2="221.2" y1="340" y2="345" stroke="var(--mut)"/><text x="221.2" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">0.3 s</text><line x1="358.5" x2="358.5" y1="340" y2="345" stroke="var(--mut)"/><text x="358.5" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">1 s</text><line x1="483.7" x2="483.7" y1="340" y2="345" stroke="var(--mut)"/><text x="483.7" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">3 s</text><line x1="621.0" x2="621.0" y1="340" y2="345" stroke="var(--mut)"/><text x="621.0" y="360" text-anchor="middle" font-size="11.5" fill="var(--mut)">10 s</text><text x="398" y="390" text-anchor="middle" font-size="11.5" fill="var(--mut)">Median time per request (seconds, log scale)</text><text x="24" y="76" font-size="11.5" fill="var(--mut)">Routed correctly</text><circle cx="618.7" cy="301.0" r="5.5" fill="none" stroke="var(--mut)" stroke-dasharray="2 2"><title>qwen2.5:3b, truncated prompt (August, invalid): 41% in 9.8 s</title></circle><text x="606.7" y="299.0" text-anchor="end" fill="var(--mut)">qwen2.5:3b, truncated prompt</text><text x="606.7" y="314.0" text-anchor="end" font-size="11.5" fill="var(--mut)">41% · 9.8 s (August, invalid)</text><circle cx="501.3" cy="162.9" r="5.5" fill="var(--mut)"><title>qwen2.5:3b language model, whole prompt: 80% in 3.5 s warm</title></circle><text x="513.3" y="160.9" fill="var(--fg)">qwen2.5:3b, whole prompt</text><text x="513.3" y="175.9" font-size="11.5" fill="var(--mut)">80% · 3.5 s warm</text><circle cx="214.6" cy="219.5" r="5.5" fill="var(--mut)"><title>Embedding router: 64% in 0.283 s</title></circle><text x="202.6" y="217.5" text-anchor="end" fill="var(--fg)">Embedding router</text><text x="202.6" y="232.5" text-anchor="end" font-size="11.5" fill="var(--mut)">64% · 0.283 s</text><circle cx="263.1" cy="198.3" r="5.5" fill="var(--mut)"><title>Kev-0.8B, stock: 70% in 0.433 s</title></circle><text x="275.1" y="196.3" fill="var(--fg)">Kev-0.8B, stock</text><text x="275.1" y="211.3" font-size="11.5" fill="var(--mut)">70% · 0.433 s</text><circle cx="279.5" cy="116.8" r="7" fill="var(--accent)"><title>Kev-0.8B, fine-tuned: 93% in 0.5 s</title></circle><text x="291.5" y="114.8" font-weight="600" fill="var(--fg)">Kev-0.8B, fine-tuned</text><text x="291.5" y="129.8" font-size="11.5" fill="var(--mut)">93% · 0.5 s</text></svg>
+<figcaption>Figure 2. The same 44 requests on an 8&nbsp;GB Apple M2, exact-phrase path bypassed; up and to the left is better. The hollow point is the August measurement on a truncated prompt, kept for the record. Source: the August 2026 study, docs/kev_migration_research.md and the October context audit.</figcaption>
 </figure>
 
-Stock Kev already beat both August engines; the fine-tune added 23 points without adding latency.
+Stock Kev beat the embedding router but not the language model given its whole prompt; the fine-tune added 23 points without adding latency, and that is what put it ahead.
 
 Model-level numbers flatter any classifier, so every release since v0.4 is also measured through the whole binary: each request runs as `gitrust --yes "<request>"` in a fresh repo, exact phrases and all checks included, and is scored right, asked (a menu, which `--yes` refuses), or wrong. A wrong action that _changes the repository_ is the number that matters.
 
@@ -490,7 +503,7 @@ Every reason I gave in August for parking GiTrust now has a measured answer, exc
 		</thead>
 		<tbody>
 			<tr>
-				<td>The 3B model routed 41% of hard phrasings</td>
+				<td>The 3B model routed 41% of hard phrasings (on a truncated prompt; 80% with the whole prompt)</td>
 				<td>A decision model, fine-tuned for the 36 operations</td>
 				<td>41/44 (93%) on the same set; 83% whole-system on 338 blind requests</td>
 			</tr>
@@ -500,7 +513,7 @@ Every reason I gave in August for parking GiTrust now has a measured answer, exc
 				<td>5/5 on the safety bucket; 0 wrong actions that change anything on the 112 author and owner requests</td>
 			</tr>
 			<tr>
-				<td>\~10 s per request</td>
+				<td>\~3.5 s warm and \~40 s cold per request (\~10 s as first measured, truncated)</td>
 				<td>One forward pass, no generation</td>
 				<td>\~0.5 s median on the M2</td>
 			</tr>
@@ -608,6 +621,14 @@ This is a single-system case study on one laptop with small, mostly synthetic te
 			to start.
 		</span>
 	</li>
+	<li>
+		<span class="b">→</span>
+		<span>
+			**The August baseline was truncated.** I found it in October by
+			reading Ollama's log: all 44 baseline requests had been cut to
+			2,048 tokens. Check `prompt_eval_count`, not just accuracy.
+		</span>
+	</li>
 </ul>
 
 ## <span class="num">09</span>Lessons
@@ -618,10 +639,12 @@ The lesson I would carry to the next tool is to match the model's _shape_ to the
 	<li>
 		<span class="b"></span>
 		<span>
-			**Model type beat model size.** A 0.8B model that ranks a closed
-			list beat a 3B model that writes text, by 52 points, on the same
-			hardware. My August model-swap study compared sizes of the wrong
-			kind; the answer was a different kind.
+			**Model type mattered, but the fine-tune mattered more.** A 0.8B
+			model that ranks a closed list, fine-tuned for the task, beat a 3B
+			model that writes text by 13 points over its whole-prompt score;
+			stock, it was 10 points below it. My August model-swap study
+			compared sizes on a truncated prompt; the answer was the right
+			shape trained on the task.
 		</span>
 	</li>
 	<li>
@@ -766,8 +789,8 @@ Everything here is public, and the model runs on any Apple Silicon Mac.
 			<div class="k">Research report</div>
 			<div class="t">When the LLM Is the Weak Link</div>
 			<div class="d">
-				The August paper: the 41% result, the model-swap study, and why
-				I parked the tool.
+				The August paper, with its October correction: the model-swap
+				study, the gates, and why I parked the tool.
 			</div>
 			<div class="go">Read the paper →</div>
 		</a>

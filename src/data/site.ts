@@ -104,8 +104,8 @@ export const PROJECTS: Project[] = [
 		idx: "01",
 		name: "GiTrust - Agentic Git CLI",
 		kind: "OPEN SOURCE",
-		stack: "Rust · Kev-0.8B (fine-tuned) · git2",
-		desc: "Natural-language Git CLI running a local 0.8B decision model on 8GB consumer hardware. Measured both candidate classifiers on a 44-case set and found each one misrouting destructive requests: the LLM sending \"throw away my changes\" to a hard reset, the embedding router silently squashing three commits. Rebuilt so a deterministic gate owns every destructive decision and the model never reaches it. 8 failures to 0 across two releases.",
+		stack: "Kev-0.8B (LoRA fine-tune) · Python evals · Rust (AI-assisted)",
+		desc: "Natural-language Git CLI running a fine-tuned, calibrated 0.8B decision model on an 8GB laptop: 93% routing in 0.5 s, against 80% for a 3B language model given its full prompt, and 95.6% on 338 blind-written requests. Every destructive decision is owned by a deterministic gate the model never reaches. Found a truncation bug in my own published baseline and corrected it publicly.",
 		href: "https://github.com/aniketdalvi385/gitrust",
 	},
 	{

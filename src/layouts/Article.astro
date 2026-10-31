@@ -263,19 +263,30 @@ const label =
 	   close the case study. The one place a bordered card is right: each is a
 	   distinct object in the document, not a page division. */
 	.prose .abstract,
-	.prose .takeaways {
+	.prose .takeaways,
+	.prose .correction {
 		margin: clamp(40px, 5vw, 64px) auto;
 		padding: clamp(24px, 3vw, 36px);
 		background: var(--card);
 		border: 1px solid var(--line);
 		border-radius: 2px;
 	}
-	.prose .abstract p:not(.eyebrow) {
+	.prose .abstract p:not(.eyebrow),
+	.prose .correction p:not(.eyebrow) {
 		font-size: clamp(14px, 1.05vw, 15.5px);
 		line-height: 1.7;
 	}
-	.prose .abstract p:last-child {
+	.prose .abstract p:last-child,
+	.prose .correction p:last-child {
 		margin-bottom: 0;
+	}
+	/* A dated correction amends the original text, so it carries the accent
+	   rule and its eyebrow takes the accent colour. */
+	.prose .correction {
+		border-left: 3px solid var(--accent);
+	}
+	.prose .correction .eyebrow {
+		color: var(--accent);
 	}
 	/* The takeaways list is the slab's only content, so it carries no trailing
 	   margin and sits a little looser than a run-of-text list. */

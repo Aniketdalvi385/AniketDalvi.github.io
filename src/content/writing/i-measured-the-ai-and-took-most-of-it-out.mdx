@@ -11,6 +11,13 @@ order: 1
 eyebrow: "Blog · Building With Local LLMs · 2026"
 ---
 
+<div class="correction">
+<p class="eyebrow">Correction · 31 October 2026</p>
+
+The 41% below was measured on a truncated prompt: the roughly 5,950-token classifier prompt was cut to 2,048 tokens, so the model saw only its closing examples. With the whole prompt the same model routes **35/44 (80%)**, at about 3.5&nbsp;s per request once warm. The embedding router's 64% is unaffected, but the LLM, given its full prompt, beat it. Details are in the correction at the top of [When the LLM Is the Weak Link](/writing/when-the-llm-is-the-weak-link).
+
+</div>
+
 <section class="lede">
 
 Everyone who's used Git for a while has a horror story. A colleague runs `git reset --hard` on the wrong directory and watches an afternoon of work vanish. Someone force-pushes over a teammate's commit. A junior dev is *certain* they committed something, and now it's nowhere. Git's sharpest edges come out exactly when people are stressed and moving fast, which is to say, exactly when they'll cut themselves.
